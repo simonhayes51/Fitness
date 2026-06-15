@@ -26,7 +26,9 @@ Future<void> _boot() async {
 
   final db = LocalDbService.instance;
   await db.init();
-  await SeedService(db).seedIfNeeded();
+  final seed = SeedService(db);
+  await seed.seedIfNeeded();
+  await seed.migrateIfNeeded();
 
   await NotificationService.instance.init();
 

@@ -14,6 +14,7 @@ class SeedService {
   final LocalDbService _db;
 
   static const _seedFlag = 'seeded_v1';
+  static const _migration1Flag = 'migration_remove_1_5_rep';
 
   Future<void> seedIfNeeded() async {
     final alreadySeeded = _db.getSetting<bool>(_seedFlag) ?? false;
@@ -23,6 +24,42 @@ class SeedService {
     await _seedFoods();
     await _seedRoutines();
     await _db.setSetting(_seedFlag, true);
+  }
+
+  Future<void> migrateIfNeeded() async {
+    final done = _db.getSetting<bool>(_migration1Flag) ?? false;
+    if (done) return;
+    await _remove1Point5RepExercises();
+    await _db.setSetting(_migration1Flag, true);
+  }
+
+  Future<void> _remove1Point5RepExercises() async {
+    const ids = [
+      '1-5-rep-bicep-curl',
+      '1-5-rep-hammer-curl',
+      '1-5-rep-preacher-curl',
+      '1-5-rep-triceps-extension',
+      '1-5-rep-bent-over-row',
+      '1-5-rep-lat-pulldown',
+      '1-5-rep-romanian-deadlift',
+      '1-5-rep-seated-row',
+      '1-5-rep-bench-press',
+      '1-5-rep-chest-fly',
+      '1-5-rep-dumbbell-bench-press',
+      '1-5-rep-incline-bench-press',
+      '1-5-rep-back-squat',
+      '1-5-rep-front-squat',
+      '1-5-rep-goblet-squat',
+      '1-5-rep-hip-thrust',
+      '1-5-rep-leg-press',
+      '1-5-rep-lunge',
+      '1-5-rep-lateral-raise',
+      '1-5-rep-overhead-press',
+      '1-5-rep-rear-delt-fly',
+    ];
+    for (final id in ids) {
+      await _db.delete(AppConstants.boxExercises, id);
+    }
   }
 
   Future<void> _seedExercises() async {
