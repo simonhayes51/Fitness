@@ -256,8 +256,8 @@ class _WeeklyVolumeCard extends ConsumerWidget {
         ? null
         : ((vol.thisWeek - vol.lastWeek) / vol.lastWeek * 100);
 
-    final totalSetsThis = sets.values.fold(0, (s, e) => s + e.thisWeek);
-    final totalSetsLast = sets.values.fold(0, (s, e) => s + e.lastWeek);
+    final totalSetsThis = sets.values.fold<int>(0, (s, e) => s + e.thisWeek);
+    final totalSetsLast = sets.values.fold<int>(0, (s, e) => s + e.lastWeek);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),

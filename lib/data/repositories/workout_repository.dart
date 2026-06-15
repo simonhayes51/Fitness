@@ -2,6 +2,30 @@ import '../../core/constants/app_constants.dart';
 import '../models/workout.dart';
 import '../services/local_db_service.dart';
 
+class WorkoutHistoryEntry {
+  const WorkoutHistoryEntry({required this.date, required this.set});
+  final DateTime date;
+  final SetEntry set;
+}
+
+class OneRepMaxPoint {
+  const OneRepMaxPoint({required this.date, required this.value});
+  final DateTime date;
+  final double value;
+}
+
+class WeeklySetCount {
+  const WeeklySetCount({required this.thisWeek, required this.lastWeek});
+  final int thisWeek;
+  final int lastWeek;
+}
+
+class WeeklyVolume {
+  const WeeklyVolume({required this.thisWeek, required this.lastWeek});
+  final double thisWeek;
+  final double lastWeek;
+}
+
 /// Persists workout sessions and derives history/analytics aggregates.
 class WorkoutRepository {
   WorkoutRepository(this._db);
@@ -32,12 +56,12 @@ class WorkoutRepository {
   // ---------------------------------------------------------------------------
 
   /// All completed sets for a given exercise across history, newest first.
-  List<({DateTime date, SetEntry set})> historyForExercise(String exerciseId) {
-    final out = <({DateTime date, SetEntry set})>[];
+  List<WorkoutHistoryEntry> historyForExercise(String exerciseId) {
+    final out = <WorkoutHistoryEntry>[];
     for (final w in getCompleted()) {
       for (final ex in w.exercises.where((e) => e.exerciseId == exerciseId)) {
         for (final s in ex.sets.where((s) => s.completed)) {
-          out.add((date: w.completedAt ?? w.startedAt, set: s));
+          out.add(WorkoutHistoryEntry(date: w.completedAt ?? w.startedAt, set: s));
         }
       }
     }
@@ -58,15 +82,14 @@ class WorkoutRepository {
   }
 
   /// Best estimated-1RM data points over time for charting.
-  List<({DateTime date, double value})> oneRepMaxSeries(String exerciseId) {
-    final byDay = <String, ({DateTime date, double value})>{};
+  List<OneRepMaxPoint> oneRepMaxSeries(String exerciseId) {
+    final byDay = <String, OneRepMaxPoint>{};
     for (final h in historyForExercise(exerciseId)) {
-      final key =
-          '${h.date.year}-${h.date.month}-${h.date.day}';
+      final key = '${h.date.year}-${h.date.month}-${h.date.day}';
       final e1rm = h.set.estimated1RM;
       final existing = byDay[key];
       if (existing == null || e1rm > existing.value) {
-        byDay[key] = (date: h.date, value: e1rm);
+        byDay[key] = OneRepMaxPoint(date: h.date, value: e1rm);
       }
     }
     final list = byDay.values.toList()
@@ -145,11 +168,10 @@ class WorkoutRepository {
   }
 
   /// Volume logged this week vs the previous week, per muscle group.
-  Map<String, ({int thisWeek, int lastWeek})> weeklySetComparison() {
+  Map<String, WeeklySetCount> weeklySetComparison() {
     final thisWeek = weeklySetsByMuscle(weeks: 1);
     final lastWeek = <String, int>{};
-    final cutoffStart =
-        DateTime.now().subtract(const Duration(days: 14));
+    final cutoffStart = DateTime.now().subtract(const Duration(days: 14));
     final cutoffEnd = DateTime.now().subtract(const Duration(days: 7));
     for (final w in getCompleted()) {
       final d = w.completedAt ?? w.startedAt;
@@ -159,22 +181,24 @@ class WorkoutRepository {
             (lastWeek[ex.muscleGroup] ?? 0) + ex.completedSets;
       }
     }
-    final keys = {...thisWeek.keys, ...lastWeek.keys};
+    final keys = <String>{...thisWeek.keys, ...lastWeek.keys};
     return {
       for (final k in keys)
-        k: (thisWeek: thisWeek[k] ?? 0, lastWeek: lastWeek[k] ?? 0),
+        k: WeeklySetCount(
+          thisWeek: thisWeek[k] ?? 0,
+          lastWeek: lastWeek[k] ?? 0,
+        ),
     };
   }
 
   /// Total volume this week vs last week.
-  ({double thisWeek, double lastWeek}) weeklyVolumeComparison() {
+  WeeklyVolume weeklyVolumeComparison() {
     double tw = 0, lw = 0;
     final now = DateTime.now();
     final weekStart = now.subtract(Duration(days: now.weekday - 1));
     final weekStartMidnight =
         DateTime(weekStart.year, weekStart.month, weekStart.day);
-    final lastWeekStart =
-        weekStartMidnight.subtract(const Duration(days: 7));
+    final lastWeekStart = weekStartMidnight.subtract(const Duration(days: 7));
     for (final w in getCompleted()) {
       final d = w.completedAt ?? w.startedAt;
       if (!d.isBefore(weekStartMidnight)) {
@@ -183,7 +207,7 @@ class WorkoutRepository {
         lw += w.totalVolume;
       }
     }
-    return (thisWeek: tw, lastWeek: lw);
+    return WeeklyVolume(thisWeek: tw, lastWeek: lw);
   }
 
   int get totalWorkouts => getCompleted().length;

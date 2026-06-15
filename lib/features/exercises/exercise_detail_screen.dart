@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/calculations.dart';
 import '../../core/utils/formatters.dart';
+import '../../data/repositories/workout_repository.dart';
 import '../../shared/providers/providers.dart';
 import '../../shared/widgets/common.dart';
 
@@ -230,7 +231,7 @@ class ExerciseDetailScreen extends ConsumerWidget {
 
 class _OneRmChart extends StatelessWidget {
   const _OneRmChart({required this.series});
-  final List<({DateTime date, double value})> series;
+  final List<OneRepMaxPoint> series;
 
   @override
   Widget build(BuildContext context) {

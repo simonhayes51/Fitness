@@ -6,6 +6,13 @@ import '../../core/theme/app_colors.dart';
 import '../providers/active_workout_provider.dart';
 import 'rest_timer_bar.dart';
 
+class _NavDest {
+  const _NavDest(this.icon, this.active, this.label);
+  final IconData icon;
+  final IconData active;
+  final String label;
+}
+
 /// Shell scaffold hosting the five primary tabs plus a persistent
 /// "active workout" resume banner and the rest-timer bar.
 class AppScaffold extends ConsumerWidget {
@@ -14,11 +21,11 @@ class AppScaffold extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
 
   static const _destinations = [
-    (icon: Icons.home_outlined, active: Icons.home_rounded, label: 'Home'),
-    (icon: Icons.fitness_center_outlined, active: Icons.fitness_center, label: 'Workout'),
-    (icon: Icons.menu_book_outlined, active: Icons.menu_book, label: 'Library'),
-    (icon: Icons.restaurant_outlined, active: Icons.restaurant, label: 'Nutrition'),
-    (icon: Icons.insights_outlined, active: Icons.insights, label: 'Progress'),
+    _NavDest(Icons.home_outlined, Icons.home_rounded, 'Home'),
+    _NavDest(Icons.fitness_center_outlined, Icons.fitness_center, 'Workout'),
+    _NavDest(Icons.menu_book_outlined, Icons.menu_book, 'Library'),
+    _NavDest(Icons.restaurant_outlined, Icons.restaurant, 'Nutrition'),
+    _NavDest(Icons.insights_outlined, Icons.insights, 'Progress'),
   ];
 
   @override

@@ -268,7 +268,7 @@ class ProgressScreen extends ConsumerWidget {
         TextEditingController(text: Formatters.weight(goal.currentValue));
     final result = await showDialog<double>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dlgCtx) => AlertDialog(
         title: Text('Update "${goal.title}"'),
         content: TextField(
           controller: controller,
@@ -278,11 +278,11 @@ class ProgressScreen extends ConsumerWidget {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dlgCtx),
               child: const Text('Cancel')),
           FilledButton(
             onPressed: () =>
-                Navigator.pop(context, double.tryParse(controller.text)),
+                Navigator.pop(dlgCtx, double.tryParse(controller.text)),
             child: const Text('Save'),
           ),
         ],
