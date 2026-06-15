@@ -8,6 +8,9 @@ import 'package:timezone/timezone.dart' as tz;
 ///
 /// All scheduling is local (no server). FCM push integration lives in
 /// [pushIntegrationPoint] for v2.
+///
+/// On web notifications are silently skipped — the browser Notifications API
+/// is a separate integration not yet wired up.
 class NotificationService {
   NotificationService._();
   static final NotificationService instance = NotificationService._();
@@ -17,6 +20,7 @@ class NotificationService {
   bool _ready = false;
 
   Future<void> init() async {
+    if (kIsWeb) return;
     if (_ready) return;
     tz.initializeTimeZones();
 
@@ -33,6 +37,7 @@ class NotificationService {
   }
 
   Future<void> requestPermissions() async {
+    if (kIsWeb) return;
     await _plugin
         .resolvePlatformSpecificImplementation<
             IOSFlutterLocalNotificationsPlugin>()
@@ -61,7 +66,7 @@ class NotificationService {
 
   /// Fire a rest-complete notification [seconds] from now.
   Future<void> scheduleRestComplete(int seconds) async {
-    if (!_ready) return;
+    if (kIsWeb || !_ready) return;
     await _plugin.zonedSchedule(
       1001,
       'Rest complete 💥',
@@ -74,7 +79,10 @@ class NotificationService {
     );
   }
 
-  Future<void> cancelRestTimer() => _plugin.cancel(1001);
+  Future<void> cancelRestTimer() async {
+    if (kIsWeb) return;
+    await _plugin.cancel(1001);
+  }
 
   /// Schedule a daily workout reminder at [hour]:[minute].
   Future<void> scheduleDailyReminder({
@@ -83,7 +91,7 @@ class NotificationService {
     String title = 'Time to train 🏋️',
     String body = 'Keep your streak alive — log today\'s workout.',
   }) async {
-    if (!_ready) return;
+    if (kIsWeb || !_ready) return;
     await _plugin.zonedSchedule(
       2001,
       title,
@@ -98,7 +106,7 @@ class NotificationService {
   }
 
   Future<void> showGoalAchieved(String goalTitle) async {
-    if (!_ready) return;
+    if (kIsWeb || !_ready) return;
     await _plugin.show(
       3001,
       'Goal achieved! 🎉',
@@ -107,7 +115,10 @@ class NotificationService {
     );
   }
 
-  Future<void> cancelDailyReminder() => _plugin.cancel(2001);
+  Future<void> cancelDailyReminder() async {
+    if (kIsWeb) return;
+    await _plugin.cancel(2001);
+  }
 
   tz.TZDateTime _nextInstanceOf(int hour, int minute) {
     final now = tz.TZDateTime.now(tz.local);

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -101,9 +102,14 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
   }
 
   Future<void> _scanBarcode() async {
-    final code = await Navigator.of(context).push<String>(
-      MaterialPageRoute(builder: (_) => const BarcodeScannerScreen()),
-    );
+    final String? code;
+    if (kIsWeb) {
+      code = await _webBarcodeDialog();
+    } else {
+      code = await Navigator.of(context).push<String>(
+        MaterialPageRoute(builder: (_) => const BarcodeScannerScreen()),
+      );
+    }
     if (code == null || !mounted) return;
 
     // 1. Try local DB.
@@ -129,6 +135,33 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
       );
       _createCustom(barcode: code);
     }
+  }
+
+  Future<String?> _webBarcodeDialog() async {
+    final ctrl = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Enter barcode'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(hintText: 'e.g. 5000112548167'),
+          onSubmitted: (v) => Navigator.pop(_, v.trim()),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(_),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(_, ctrl.text.trim()),
+              child: const Text('Look up')),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    return result?.isEmpty == true ? null : result;
   }
 
   Future<void> _pickPortion(Food food) async {

@@ -18,7 +18,7 @@ jobs:
 
       # Generate native platform folders (not committed) so analysis resolves
       # plugin registrants.
-      - run: flutter create --platforms=android,ios .
+      - run: flutter create --platforms=android,ios,web .
 
       - run: flutter pub get
 
@@ -30,3 +30,6 @@ jobs:
 
       - name: Test
         run: flutter test
+
+      - name: Build web (PWA)
+        run: flutter build web --release --pwa-strategy offline-first
