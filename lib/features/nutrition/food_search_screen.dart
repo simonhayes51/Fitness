@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/formatters.dart';
 import '../../data/models/food.dart';
 import '../../data/models/food_log.dart';
 import '../../shared/providers/providers.dart';
@@ -251,6 +252,20 @@ class _PortionSheetState extends State<_PortionSheet> {
               _macro('${macros.fat.round()}g', 'fat', AppColors.fat),
             ],
           ),
+          const SizedBox(height: 12),
+          // Micronutrient detail.
+          if (macros.fiber > 0 || macros.sodium > 0 || macros.sugar > 0)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                if (macros.fiber > 0)
+                  _micro('${macros.fiber.round()}g', 'fibre'),
+                if (macros.sugar > 0)
+                  _micro('${macros.sugar.round()}g', 'sugar'),
+                if (macros.sodium > 0)
+                  _micro(Formatters.sodium(macros.sodium), 'sodium'),
+              ],
+            ),
           const SizedBox(height: 20),
           FilledButton(
             onPressed: _amount > 0 ? () => Navigator.pop(context, _amount) : null,
@@ -260,6 +275,15 @@ class _PortionSheetState extends State<_PortionSheet> {
       ),
     );
   }
+
+  Widget _micro(String value, String label) => Column(
+        children: [
+          Text(value,
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+          Text(label,
+              style: const TextStyle(fontSize: 11, color: Colors.grey)),
+        ],
+      );
 
   Widget _macro(String value, String label, Color color) => Column(
         children: [
@@ -287,6 +311,9 @@ class _CustomFoodSheetState extends State<_CustomFoodSheet> {
   final _protein = TextEditingController();
   final _carbs = TextEditingController();
   final _fat = TextEditingController();
+  final _fiber = TextEditingController();
+  final _sugar = TextEditingController();
+  final _sodium = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
@@ -331,6 +358,16 @@ class _CustomFoodSheetState extends State<_CustomFoodSheet> {
                 Expanded(child: _macroField(_fat, 'Fat')),
               ],
             ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: _macroField(_fiber, 'Fibre (g)')),
+                const SizedBox(width: 10),
+                Expanded(child: _macroField(_sugar, 'Sugar (g)')),
+                const SizedBox(width: 10),
+                Expanded(child: _macroField(_sodium, 'Sodium (mg)')),
+              ],
+            ),
             const SizedBox(height: 20),
             FilledButton(
               onPressed: _save,
@@ -361,6 +398,9 @@ class _CustomFoodSheetState extends State<_CustomFoodSheet> {
         protein: double.tryParse(_protein.text) ?? 0,
         carbs: double.tryParse(_carbs.text) ?? 0,
         fat: double.tryParse(_fat.text) ?? 0,
+        fiber: double.tryParse(_fiber.text) ?? 0,
+        sugar: double.tryParse(_sugar.text) ?? 0,
+        sodium: double.tryParse(_sodium.text) ?? 0,
         isCustom: true,
       ),
     );
@@ -374,6 +414,9 @@ class _CustomFoodSheetState extends State<_CustomFoodSheet> {
     _protein.dispose();
     _carbs.dispose();
     _fat.dispose();
+    _fiber.dispose();
+    _sugar.dispose();
+    _sodium.dispose();
     super.dispose();
   }
 }

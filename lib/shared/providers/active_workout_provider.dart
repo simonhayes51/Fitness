@@ -37,14 +37,51 @@ class ActiveWorkoutNotifier extends StateNotifier<Workout?> {
     state = Workout(name: routine.name, routineId: routine.id, exercises: exercises);
   }
 
+  /// Re-run a past workout with the same exercises and previous weights pre-filled.
+  void startFromWorkoutHistory(Workout past) {
+    final exercises = past.exercises.map((ex) => WorkoutExercise(
+          exerciseId: ex.exerciseId,
+          exerciseName: ex.exerciseName,
+          muscleGroup: ex.muscleGroup,
+          restSeconds: ex.restSeconds,
+          supersetGroup: ex.supersetGroup,
+          sets: ex.sets
+              .where((s) => s.completed)
+              .map((s) => SetEntry(
+                    weight: s.weight,
+                    reps: s.reps,
+                    type: s.type,
+                  ))
+              .toList(),
+        )).toList();
+    // Remove exercises with no completed sets.
+    exercises.removeWhere((e) => e.sets.isEmpty);
+    state = Workout(name: past.name, exercises: exercises);
+  }
+
   void addExercise(Exercise exercise) {
     final w = state;
     if (w == null) return;
+    final lastSets =
+        _ref.read(workoutRepositoryProvider).lastSessionSets(exercise.id);
+    final warmupWeight = lastSets.isNotEmpty ? lastSets.first.weight * 0.6 : 0.0;
+    final workingWeight = lastSets.isNotEmpty ? lastSets.first.weight : 0.0;
+
+    final sets = <SetEntry>[
+      // Auto-add a warm-up set when there's history.
+      if (warmupWeight > 0)
+        SetEntry(
+          weight: (warmupWeight / 2.5).round() * 2.5, // round to nearest 2.5
+          reps: 10,
+          type: SetType.warmup,
+        ),
+      SetEntry(weight: workingWeight),
+    ];
     w.exercises.add(WorkoutExercise(
       exerciseId: exercise.id,
       exerciseName: exercise.name,
       muscleGroup: exercise.muscleGroup,
-      sets: [SetEntry()],
+      sets: sets,
     ));
     _emit();
   }
@@ -95,6 +132,12 @@ class ActiveWorkoutNotifier extends StateNotifier<Workout?> {
     _emit();
   }
 
+  void updateNotes(String notes) {
+    if (state == null) return;
+    state!.notes = notes;
+    _emit();
+  }
+
   /// Group two adjacent exercises into a superset.
   void toggleSuperset(String exerciseInstanceId) {
     final w = state;
@@ -126,7 +169,7 @@ class ActiveWorkoutNotifier extends StateNotifier<Workout?> {
     final w = state;
     if (w == null) return null;
     w.completedAt = DateTime.now();
-    // Drop empty exercises and uncompleted-only exercises stay as logged.
+    // Drop exercises where no sets were completed.
     w.exercises.removeWhere((e) => e.sets.every((s) => !s.completed));
     await _ref.read(workoutRepositoryProvider).save(w);
     _ref.read(dataRevisionProvider.notifier).state++;

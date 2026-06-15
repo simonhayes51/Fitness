@@ -122,6 +122,70 @@ class WorkoutRepository {
     return null;
   }
 
+  /// Sets logged in the most recent session for [exerciseId], in order.
+  List<SetEntry> lastSessionSets(String exerciseId) {
+    final history = historyForExercise(exerciseId);
+    if (history.isEmpty) return [];
+    final lastDate = history.first.date;
+    return history
+        .where((h) =>
+            h.date.year == lastDate.year &&
+            h.date.month == lastDate.month &&
+            h.date.day == lastDate.day)
+        .map((h) => h.set)
+        .toList();
+  }
+
+  /// Completed workouts that finished on [day].
+  List<Workout> workoutsForDay(DateTime day) {
+    return getCompleted().where((w) {
+      final d = w.completedAt ?? w.startedAt;
+      return d.year == day.year && d.month == day.month && d.day == day.day;
+    }).toList();
+  }
+
+  /// Volume logged this week vs the previous week, per muscle group.
+  Map<String, ({int thisWeek, int lastWeek})> weeklySetComparison() {
+    final thisWeek = weeklySetsByMuscle(weeks: 1);
+    final lastWeek = <String, int>{};
+    final cutoffStart =
+        DateTime.now().subtract(const Duration(days: 14));
+    final cutoffEnd = DateTime.now().subtract(const Duration(days: 7));
+    for (final w in getCompleted()) {
+      final d = w.completedAt ?? w.startedAt;
+      if (d.isBefore(cutoffStart) || d.isAfter(cutoffEnd)) continue;
+      for (final ex in w.exercises) {
+        lastWeek[ex.muscleGroup] =
+            (lastWeek[ex.muscleGroup] ?? 0) + ex.completedSets;
+      }
+    }
+    final keys = {...thisWeek.keys, ...lastWeek.keys};
+    return {
+      for (final k in keys)
+        k: (thisWeek: thisWeek[k] ?? 0, lastWeek: lastWeek[k] ?? 0),
+    };
+  }
+
+  /// Total volume this week vs last week.
+  ({double thisWeek, double lastWeek}) weeklyVolumeComparison() {
+    double tw = 0, lw = 0;
+    final now = DateTime.now();
+    final weekStart = now.subtract(Duration(days: now.weekday - 1));
+    final weekStartMidnight =
+        DateTime(weekStart.year, weekStart.month, weekStart.day);
+    final lastWeekStart =
+        weekStartMidnight.subtract(const Duration(days: 7));
+    for (final w in getCompleted()) {
+      final d = w.completedAt ?? w.startedAt;
+      if (!d.isBefore(weekStartMidnight)) {
+        tw += w.totalVolume;
+      } else if (!d.isBefore(lastWeekStart)) {
+        lw += w.totalVolume;
+      }
+    }
+    return (thisWeek: tw, lastWeek: lw);
+  }
+
   int get totalWorkouts => getCompleted().length;
 
   /// Current consecutive-day logging streak.

@@ -70,7 +70,10 @@ class WorkoutHomeScreen extends ConsumerWidget {
           else
             ...history.take(25).map((w) => Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                  child: _HistoryCard(workout: w),
+                  child: _HistoryCard(
+                    workout: w,
+                    onRepeat: () => _repeatWorkout(context, ref, w),
+                  ),
                 )),
         ],
       ),
@@ -97,6 +100,11 @@ class WorkoutHomeScreen extends ConsumerWidget {
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => RoutineEditorScreen(existing: r),
     ));
+  }
+
+  void _repeatWorkout(BuildContext context, WidgetRef ref, Workout w) {
+    ref.read(activeWorkoutProvider.notifier).startFromWorkoutHistory(w);
+    context.push('/active-workout');
   }
 }
 
@@ -157,8 +165,9 @@ class _RoutineCard extends StatelessWidget {
 }
 
 class _HistoryCard extends StatelessWidget {
-  const _HistoryCard({required this.workout});
+  const _HistoryCard({required this.workout, required this.onRepeat});
   final Workout workout;
+  final VoidCallback onRepeat;
 
   @override
   Widget build(BuildContext context) {
@@ -198,6 +207,18 @@ class _HistoryCard extends StatelessWidget {
               style: TextStyle(color: Theme.of(context).hintColor, fontSize: 12.5),
             ),
           ],
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerRight,
+            child: OutlinedButton.icon(
+              onPressed: onRepeat,
+              style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(0, 34),
+                  padding: const EdgeInsets.symmetric(horizontal: 12)),
+              icon: const Icon(Icons.replay, size: 16),
+              label: const Text('Repeat', style: TextStyle(fontSize: 13)),
+            ),
+          ),
         ],
       ),
     );

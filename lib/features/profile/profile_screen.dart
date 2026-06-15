@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
@@ -141,8 +143,8 @@ class ProfileScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.all(16),
             child: OutlinedButton.icon(
-              onPressed: () => _shareCard(profile.name, workouts.totalWorkouts,
-                  workouts.currentStreak()),
+              onPressed: () => _shareCard(context, profile.name,
+                  workouts.totalWorkouts, workouts.currentStreak()),
               icon: const Icon(Icons.share),
               label: const Text('Share progress card'),
             ),
@@ -180,13 +182,19 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  void _shareCard(String name, int workouts, int streak) {
-    Share.share(
-      '💪 ${name.isEmpty ? 'I' : name} on ForgeFit\n'
-      '🏋️ $workouts workouts logged\n'
-      '🔥 $streak-day streak\n\n'
-      'Forging my strongest self with #ForgeFit',
-    );
+  void _shareCard(BuildContext context, String name, int workouts, int streak) {
+    final text = '💪 ${name.isEmpty ? 'I' : name} on ForgeFit\n'
+        '🏋️ $workouts workouts logged\n'
+        '🔥 $streak-day streak\n\n'
+        'Forging my strongest self with #ForgeFit';
+    if (kIsWeb) {
+      Clipboard.setData(ClipboardData(text: text));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Progress card copied to clipboard!')),
+      );
+    } else {
+      Share.share(text);
+    }
   }
 
   Future<void> _editProfile(BuildContext context, WidgetRef ref) async {

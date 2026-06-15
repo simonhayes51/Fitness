@@ -16,6 +16,8 @@ class AppConstants {
   static const String boxProfile = 'profile';
   static const String boxSettings = 'settings';
   static const String boxWaterLogs = 'water_logs';
+  static const String boxSavedMeals = 'saved_meals';
+  static const String boxFasting = 'fasting';
 
   // Asset paths.
   static const String exerciseSeed = 'assets/data/exercises.json';

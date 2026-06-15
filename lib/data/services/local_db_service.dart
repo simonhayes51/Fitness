@@ -24,6 +24,8 @@ class LocalDbService {
     AppConstants.boxProfile,
     AppConstants.boxSettings,
     AppConstants.boxWaterLogs,
+    AppConstants.boxSavedMeals,
+    AppConstants.boxFasting,
   ];
 
   Future<void> init() async {

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/formatters.dart';
+import '../../data/repositories/workout_repository.dart';
 import '../../data/services/ai_coach_service.dart';
 import '../../shared/providers/profile_provider.dart';
 import '../../shared/providers/providers.dart';
@@ -161,6 +162,9 @@ class DashboardScreen extends ConsumerWidget {
                 ),
               ),
 
+              // Weekly volume comparison.
+              _WeeklyVolumeCard(workouts: workouts),
+
               // Quick actions.
               const SectionHeader('Quick actions'),
               Padding(
@@ -236,6 +240,115 @@ class DashboardScreen extends ConsumerWidget {
     if (h < 12) return 'Good morning,';
     if (h < 18) return 'Good afternoon,';
     return 'Good evening,';
+  }
+}
+
+class _WeeklyVolumeCard extends ConsumerWidget {
+  const _WeeklyVolumeCard({required this.workouts});
+  final WorkoutRepository workouts;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final vol = workouts.weeklyVolumeComparison();
+    final sets = workouts.weeklySetComparison();
+
+    final pct = vol.lastWeek == 0
+        ? null
+        : ((vol.thisWeek - vol.lastWeek) / vol.lastWeek * 100);
+
+    final totalSetsThis = sets.values.fold(0, (s, e) => s + e.thisWeek);
+    final totalSetsLast = sets.values.fold(0, (s, e) => s + e.lastWeek);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      child: AppCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Text('This week',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                const Spacer(),
+                if (pct != null)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: (pct >= 0 ? AppColors.success : AppColors.danger)
+                          .withOpacity(0.14),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '${pct >= 0 ? '+' : ''}${pct.toStringAsFixed(0)}%',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: pct >= 0 ? AppColors.success : AppColors.danger,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _weekStat(
+                    context,
+                    Icons.bar_chart,
+                    '${Formatters.number(vol.thisWeek.round())}',
+                    'vol',
+                    vol.lastWeek,
+                    AppColors.primary,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _weekStat(
+                    context,
+                    Icons.check_circle_outline,
+                    '$totalSetsThis',
+                    'sets',
+                    totalSetsLast.toDouble(),
+                    AppColors.secondary,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _weekStat(BuildContext context, IconData icon, String value,
+      String label, double last, Color color) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 6),
+            Text(value,
+                style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 20,
+                    color: color,
+                    fontFeatures: const [FontFeature.tabularFigures()])),
+            const SizedBox(width: 4),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 12, color: Theme.of(context).hintColor)),
+          ],
+        ),
+        Text(
+          last == 0 ? 'No data last week' : 'Last: ${Formatters.number(last.round())}',
+          style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor),
+        ),
+      ],
+    );
   }
 }
 

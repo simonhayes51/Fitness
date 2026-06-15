@@ -126,6 +126,41 @@ class Calculations {
   }
 
   // ---------------------------------------------------------------------------
+  // Energy expenditure from exercise.
+  // ---------------------------------------------------------------------------
+
+  /// Rough kcal burned estimate using MET × weight × hours.
+  /// MET 5 = moderate resistance training; 7 = heavy/HIIT.
+  static double caloriesBurned({
+    required double weightKg,
+    required Duration duration,
+    double met = 5.5,
+  }) {
+    if (weightKg <= 0 || duration.inSeconds <= 0) return 0;
+    return met * weightKg * (duration.inMinutes / 60.0);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Plate loading.
+  // ---------------------------------------------------------------------------
+
+  /// Returns the plates needed per side for [totalWeight] on a [barWeight] bar.
+  /// Uses standard plate sizes [25,20,15,10,5,2.5,1.25] kg.
+  static List<double> platesPerSide(
+      double totalWeight, double barWeight, List<double> plates) {
+    var remaining = (totalWeight - barWeight) / 2;
+    if (remaining <= 0) return [];
+    final result = <double>[];
+    for (final p in plates) {
+      while (remaining >= p - 0.001) {
+        result.add(p);
+        remaining -= p;
+      }
+    }
+    return result;
+  }
+
+  // ---------------------------------------------------------------------------
   // Unit conversions.
   // ---------------------------------------------------------------------------
   static double kgToLbs(double kg) => kg * 2.20462;

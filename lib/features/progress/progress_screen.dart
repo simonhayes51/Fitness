@@ -45,22 +45,69 @@ class ProgressScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: AppCard(
-              child: metrics.length < 2
-                  ? const SizedBox(
-                      height: 120,
-                      child: Center(
-                          child: Text('Log your weight to see trends')),
-                    )
-                  : SizedBox(
-                      height: 200,
-                      child: _WeightChart(
-                        metrics: metrics,
-                        unit: profile.unitSystem.weightUnit,
-                        toDisplay: (kg) => profile.unitSystem.weightUnit == 'kg'
-                            ? kg
-                            : kg * 2.20462,
-                      ),
-                    ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (metrics.isNotEmpty) ...[
+                    Builder(builder: (ctx) {
+                      final latest = metrics.last;
+                      final displayW = profile.unitSystem.weightUnit == 'kg'
+                          ? latest.weightKg
+                          : latest.weightKg * 2.20462;
+                      return Row(
+                        children: [
+                          Text(
+                            '${Formatters.weight(displayW)} ${profile.unitSystem.weightUnit}',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w900, fontSize: 22),
+                          ),
+                          if (latest.bodyFatPct != null) ...[
+                            const SizedBox(width: 16),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: AppColors.info.withOpacity(0.14),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                '${latest.bodyFatPct!.toStringAsFixed(1)}% BF',
+                                style: const TextStyle(
+                                    color: AppColors.info,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 13),
+                              ),
+                            ),
+                          ],
+                          const Spacer(),
+                          Text(Formatters.relativeDay(latest.date),
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: Theme.of(ctx).hintColor)),
+                        ],
+                      );
+                    }),
+                    const SizedBox(height: 12),
+                  ],
+                  metrics.length < 2
+                      ? const SizedBox(
+                          height: 120,
+                          child: Center(
+                              child: Text('Log your weight to see trends')),
+                        )
+                      : SizedBox(
+                          height: 180,
+                          child: _WeightChart(
+                            metrics: metrics,
+                            unit: profile.unitSystem.weightUnit,
+                            toDisplay: (kg) =>
+                                profile.unitSystem.weightUnit == 'kg'
+                                    ? kg
+                                    : kg * 2.20462,
+                          ),
+                        ),
+                ],
+              ),
             ),
           ),
 
@@ -141,35 +188,81 @@ class ProgressScreen extends ConsumerWidget {
 
   Future<void> _logWeight(
       BuildContext context, WidgetRef ref, double current) async {
-    final controller = TextEditingController(text: Formatters.weight(current));
-    final result = await showDialog<double>(
+    final weightCtrl = TextEditingController(text: Formatters.weight(current));
+    final bfCtrl = TextEditingController();
+    final result = await showModalBottomSheet<({double weight, double? bodyFat})>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Log body weight'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(suffixText: 'kg'),
+      isScrollControlled: true,
+      builder: (_) => Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 24,
         ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () =>
-                Navigator.pop(context, double.tryParse(controller.text)),
-            child: const Text('Save'),
-          ),
-        ],
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Log body weight',
+                style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 16),
+            TextField(
+              controller: weightCtrl,
+              autofocus: true,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Weight',
+                suffixText: 'kg',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: bfCtrl,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Body fat % (optional)',
+                suffixText: '%',
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(_),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () {
+                      final w = double.tryParse(weightCtrl.text);
+                      if (w == null) return;
+                      Navigator.pop(_, (
+                        weight: w,
+                        bodyFat: double.tryParse(bfCtrl.text),
+                      ));
+                    },
+                    child: const Text('Save'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
+    weightCtrl.dispose();
+    bfCtrl.dispose();
     if (result == null) return;
-    await ref
-        .read(profileRepositoryProvider)
-        .saveBodyMetric(BodyMetric(weightKg: result));
-    // Keep the profile's current weight in sync for TDEE.
-    await ref.read(profileProvider.notifier).patch(weightKg: result);
+    await ref.read(profileRepositoryProvider).saveBodyMetric(
+          BodyMetric(weightKg: result.weight, bodyFatPct: result.bodyFat),
+        );
+    await ref.read(profileProvider.notifier).patch(weightKg: result.weight);
     ref.read(dataRevisionProvider.notifier).state++;
   }
 

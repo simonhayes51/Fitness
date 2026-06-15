@@ -3,15 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/calculations.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/models/food_log.dart';
+import '../../data/models/saved_meal.dart';
 import '../../shared/providers/profile_provider.dart';
 import '../../shared/providers/providers.dart';
 import '../../shared/widgets/common.dart';
 import '../../shared/widgets/macro_summary.dart';
 import 'food_search_screen.dart';
 
-/// Daily nutrition diary: calories ring, macro bars, water tracker and meals.
+/// Daily nutrition diary: calories ring, macro bars, water tracker, meals,
+/// saved meals, fasting tracker, and workout-burn adjustment.
 class NutritionScreen extends ConsumerStatefulWidget {
   const NutritionScreen({super.key});
 
@@ -27,17 +30,32 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
     ref.watch(dataRevisionProvider);
     final profile = ref.watch(profileProvider);
     final repo = ref.watch(nutritionRepositoryProvider);
+    final workoutRepo = ref.watch(workoutRepositoryProvider);
 
     final entries = repo.entriesForDay(_day);
     final totals = repo.totalsForDay(_day);
     final targets = profile.macroTargets;
     final water = repo.waterForDay(_day);
-    final remaining = targets.calories - totals.calories;
+
+    // Calories burned from workouts completed on this day.
+    final todayWorkouts = workoutRepo.workoutsForDay(_day);
+    final burnedKcal = todayWorkouts.fold(0.0, (sum, w) {
+      return sum + Calculations.caloriesBurned(
+          weightKg: profile.weightKg, duration: w.duration);
+    });
+
+    final netGoal = targets.calories + burnedKcal;
+    final remaining = netGoal - totals.calories;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Nutrition'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.restaurant_menu_outlined, size: 20),
+            tooltip: 'Saved meals',
+            onPressed: () => _showSavedMeals(context, repo),
+          ),
           IconButton(
             icon: const Icon(Icons.calendar_today, size: 20),
             onPressed: _pickDate,
@@ -49,6 +67,12 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
         children: [
           _dayPicker(),
 
+          // Fasting tracker.
+          _FastingCard(
+            repo: repo,
+            onChanged: () => ref.read(dataRevisionProvider.notifier).state++,
+          ),
+
           // Calories + macros card.
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -58,9 +82,9 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
                   Row(
                     children: [
                       ProgressRing(
-                        progress: targets.calories == 0
+                        progress: netGoal == 0
                             ? 0
-                            : totals.calories / targets.calories,
+                            : totals.calories / netGoal,
                         size: 120,
                         color: AppColors.calories,
                         center: Column(
@@ -70,7 +94,9 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
                                 style: const TextStyle(
                                     fontSize: 26,
                                     fontWeight: FontWeight.w900,
-                                    fontFeatures: [FontFeature.tabularFigures()])),
+                                    fontFeatures: [
+                                      FontFeature.tabularFigures()
+                                    ])),
                             Text(remaining >= 0 ? 'kcal left' : 'kcal over',
                                 style: TextStyle(
                                     fontSize: 12,
@@ -84,10 +110,17 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _kv('Eaten', '${totals.calories.round()}'),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 6),
                             _kv('Goal', '${targets.calories.round()}'),
-                            const SizedBox(height: 8),
-                            _kv('Goal type', profile.goal.label),
+                            if (burnedKcal > 0) ...[
+                              const SizedBox(height: 6),
+                              _kv('Exercise',
+                                  '+${burnedKcal.round()}',
+                                  color: AppColors.success),
+                              const SizedBox(height: 6),
+                              _kv('Net goal', '${netGoal.round()}',
+                                  bold: true),
+                            ],
                           ],
                         ),
                       ),
@@ -129,6 +162,8 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
                 await repo.deleteEntry(id);
                 ref.read(dataRevisionProvider.notifier).state++;
               },
+              onSaveMeal: (mealEntries) =>
+                  _saveAsMeal(context, repo, meal, mealEntries),
             ),
         ],
       ),
@@ -147,7 +182,8 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
                 setState(() => _day = _day.subtract(const Duration(days: 1))),
           ),
           Text(Formatters.relativeDay(_day),
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+              style:
+                  const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
           IconButton(
             icon: const Icon(Icons.chevron_right),
             onPressed: _isToday(_day)
@@ -160,11 +196,14 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
     );
   }
 
-  Widget _kv(String k, String v) => Row(
+  Widget _kv(String k, String v, {Color? color, bool bold = false}) => Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(k, style: TextStyle(color: Theme.of(context).hintColor)),
-          Text(v, style: const TextStyle(fontWeight: FontWeight.w800)),
+          Text(v,
+              style: TextStyle(
+                  fontWeight: bold ? FontWeight.w900 : FontWeight.w800,
+                  color: color)),
         ],
       );
 
@@ -194,7 +233,233 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
       ref.read(dataRevisionProvider.notifier).state++;
     }
   }
+
+  void _showSavedMeals(BuildContext context, dynamic repo) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _SavedMealsSheet(
+        repo: repo,
+        day: _day,
+        onLogged: () => ref.read(dataRevisionProvider.notifier).state++,
+      ),
+    );
+  }
+
+  Future<void> _saveAsMeal(BuildContext context, dynamic repo, String meal,
+      List<FoodLogEntry> entries) async {
+    if (entries.isEmpty) return;
+    final ctrl = TextEditingController(text: meal);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Save as meal'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Meal name'),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(_),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(_, ctrl.text.trim()),
+              child: const Text('Save')),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (name == null || name.isEmpty || !context.mounted) return;
+    final savedMeal = SavedMeal(
+      name: name,
+      items: entries
+          .map((e) =>
+              SavedMealItem(food: e.food, amount: e.amount, mealType: e.mealType))
+          .toList(),
+    );
+    await repo.saveMeal(savedMeal);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('"$name" saved for quick re-logging')),
+      );
+    }
+  }
 }
+
+// ---------------------------------------------------------------------------
+// Fasting tracker card.
+// ---------------------------------------------------------------------------
+
+class _FastingCard extends StatefulWidget {
+  const _FastingCard({required this.repo, required this.onChanged});
+  final dynamic repo;
+  final VoidCallback onChanged;
+
+  @override
+  State<_FastingCard> createState() => _FastingCardState();
+}
+
+class _FastingCardState extends State<_FastingCard> {
+  late final Stream<int> _tick =
+      Stream.periodic(const Duration(seconds: 30), (i) => i);
+
+  @override
+  Widget build(BuildContext context) {
+    final isFasting = widget.repo.isFasting as bool;
+    final duration = widget.repo.fastDuration as Duration;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: AppCard(
+        child: Row(
+          children: [
+            const Icon(Icons.hourglass_empty, color: AppColors.tertiary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: isFasting
+                  ? StreamBuilder<int>(
+                      stream: _tick,
+                      builder: (_, __) {
+                        final d = widget.repo.fastDuration as Duration;
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Fasting',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.tertiary)),
+                            Text(
+                              '${d.inHours}h ${d.inMinutes.remainder(60)}m',
+                              style: TextStyle(
+                                  color: Theme.of(context).hintColor,
+                                  fontSize: 13),
+                            ),
+                          ],
+                        );
+                      },
+                    )
+                  : Text('Start a fast',
+                      style: TextStyle(color: Theme.of(context).hintColor)),
+            ),
+            TextButton(
+              onPressed: () async {
+                if (isFasting) {
+                  await widget.repo.endFast();
+                } else {
+                  await widget.repo.startFast();
+                }
+                widget.onChanged();
+                setState(() {});
+              },
+              child: Text(isFasting ? 'End fast' : 'Start fast',
+                  style: TextStyle(
+                      color: isFasting ? AppColors.danger : AppColors.tertiary,
+                      fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Saved meals bottom sheet.
+// ---------------------------------------------------------------------------
+
+class _SavedMealsSheet extends StatelessWidget {
+  const _SavedMealsSheet(
+      {required this.repo, required this.day, required this.onLogged});
+  final dynamic repo;
+  final DateTime day;
+  final VoidCallback onLogged;
+
+  @override
+  Widget build(BuildContext context) {
+    final meals = repo.savedMeals() as List<SavedMeal>;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.5,
+      minChildSize: 0.3,
+      maxChildSize: 0.9,
+      expand: false,
+      builder: (_, ctrl) => Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+            child: Row(
+              children: [
+                Text('Saved meals',
+                    style: Theme.of(context).textTheme.titleLarge),
+                const Spacer(),
+                IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context)),
+              ],
+            ),
+          ),
+          if (meals.isEmpty)
+            const Expanded(
+              child: Center(
+                child: Text(
+                  'No saved meals yet.\nLog a meal, then tap ⋮ → "Save as meal".',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            )
+          else
+            Expanded(
+              child: ListView.separated(
+                controller: ctrl,
+                itemCount: meals.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (_, i) {
+                  final m = meals[i];
+                  return ListTile(
+                    title: Text(m.name,
+                        style:
+                            const TextStyle(fontWeight: FontWeight.w700)),
+                    subtitle: Text(
+                        '${m.totalCalories.round()} kcal · '
+                        '${m.totalProtein.round()}g protein · '
+                        '${m.items.length} items'),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.add_circle,
+                              color: AppColors.secondary),
+                          onPressed: () async {
+                            await repo.logSavedMeal(m, day);
+                            onLogged();
+                            if (context.mounted) Navigator.pop(context);
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline,
+                              color: AppColors.danger, size: 20),
+                          onPressed: () async {
+                            await repo.deleteSavedMeal(m.id);
+                            if (context.mounted) Navigator.pop(context);
+                            onLogged();
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Water tracker card.
+// ---------------------------------------------------------------------------
 
 class _WaterCard extends StatelessWidget {
   const _WaterCard({
@@ -254,17 +519,23 @@ class _WaterCard extends StatelessWidget {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Meal section.
+// ---------------------------------------------------------------------------
+
 class _MealSection extends StatelessWidget {
   const _MealSection({
     required this.meal,
     required this.entries,
     required this.onAdd,
     required this.onDelete,
+    required this.onSaveMeal,
   });
   final String meal;
   final List<FoodLogEntry> entries;
   final VoidCallback onAdd;
   final ValueChanged<String> onDelete;
+  final ValueChanged<List<FoodLogEntry>> onSaveMeal;
 
   @override
   Widget build(BuildContext context) {
@@ -279,6 +550,13 @@ class _MealSection extends StatelessWidget {
               Text('$cals kcal',
                   style: TextStyle(
                       color: Theme.of(context).hintColor, fontSize: 13)),
+              if (entries.isNotEmpty)
+                IconButton(
+                  icon: const Icon(Icons.bookmark_add_outlined,
+                      size: 20, color: AppColors.tertiary),
+                  tooltip: 'Save as meal',
+                  onPressed: () => onSaveMeal(entries),
+                ),
               IconButton(
                 icon: const Icon(Icons.add_circle, color: AppColors.secondary),
                 onPressed: onAdd,

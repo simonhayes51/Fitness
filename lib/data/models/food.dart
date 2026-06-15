@@ -50,6 +50,9 @@ class Food {
       protein: protein * factor,
       carbs: carbs * factor,
       fat: fat * factor,
+      fiber: fiber * factor,
+      sugar: sugar * factor,
+      sodium: sodium * factor,
     );
   }
 
@@ -97,18 +100,27 @@ class MacroSnapshot {
     required this.protein,
     required this.carbs,
     required this.fat,
+    this.fiber = 0,
+    this.sugar = 0,
+    this.sodium = 0,
   });
 
   final double calories;
   final double protein;
   final double carbs;
   final double fat;
+  final double fiber;
+  final double sugar;
+  final double sodium; // mg
 
   MacroSnapshot operator +(MacroSnapshot o) => MacroSnapshot(
         calories: calories + o.calories,
         protein: protein + o.protein,
         carbs: carbs + o.carbs,
         fat: fat + o.fat,
+        fiber: fiber + o.fiber,
+        sugar: sugar + o.sugar,
+        sodium: sodium + o.sodium,
       );
 
   static const zero =

@@ -1,5 +1,7 @@
 import 'package:intl/intl.dart';
 
+import '../constants/app_constants.dart';
+
 /// Display formatting helpers.
 class Formatters {
   Formatters._();
@@ -40,11 +42,24 @@ class Formatters {
   static String seconds(int totalSeconds) =>
       duration(Duration(seconds: totalSeconds));
 
-  /// Trim trailing zeros: 50.0 -> "50", 52.5 -> "52.5".
+  /// Trim trailing zeros: 50.0 → "50", 52.5 → "52.5".
   static String weight(double value) {
     if (value == value.roundToDouble()) return value.toInt().toString();
     return value.toStringAsFixed(1);
   }
+
+  /// Unit-aware weight string. Converts kg→lbs when [unit] is imperial.
+  static String weightWithUnit(double kg, UnitSystem unit) {
+    if (unit == UnitSystem.imperial) {
+      final lbs = kg * 2.20462;
+      return '${weight(lbs)} lbs';
+    }
+    return '${weight(kg)} kg';
+  }
+
+  /// Display a weight value already in the user's unit (no conversion).
+  static String weightInUnit(double value, UnitSystem unit) =>
+      '${weight(value)} ${unit.weightUnit}';
 
   static String number(num value) => NumberFormat.decimalPattern().format(value);
 
@@ -54,4 +69,9 @@ class Formatters {
 
   static String percent(double fraction) =>
       '${(fraction * 100).clamp(0, 999).round()}%';
+
+  static String sodium(double mg) {
+    if (mg >= 1000) return '${weight(mg / 1000)}g';
+    return '${mg.round()}mg';
+  }
 }
