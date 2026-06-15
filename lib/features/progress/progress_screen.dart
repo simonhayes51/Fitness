@@ -57,7 +57,8 @@ class ProgressScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (metrics.isNotEmpty) ...[
-                    _latestWeightRow(context, metrics.last, profile),
+                    _latestWeightRow(
+                        context, metrics.last, profile.unitSystem.weightUnit),
                     const SizedBox(height: 12),
                   ],
                   metrics.length < 2
@@ -214,14 +215,13 @@ class ProgressScreen extends ConsumerWidget {
   }
 
   Widget _latestWeightRow(
-      BuildContext context, BodyMetric latest, dynamic profile) {
-    final isMetric = profile.unitSystem.weightUnit == 'kg';
+      BuildContext context, BodyMetric latest, String weightUnit) {
     final displayW =
-        isMetric ? latest.weightKg : latest.weightKg * 2.20462;
+        weightUnit == 'kg' ? latest.weightKg : latest.weightKg * 2.20462;
     return Row(
       children: [
         Text(
-          '${Formatters.weight(displayW)} ${profile.unitSystem.weightUnit}',
+          '${Formatters.weight(displayW)} $weightUnit',
           style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22),
         ),
         if (latest.bodyFatPct != null) ...[
