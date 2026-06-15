@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,15 +10,13 @@ import 'data/services/notification_service.dart';
 import 'data/services/seed_service.dart';
 
 /// ForgeFit entry point.
-///
-/// Boot sequence (offline-first):
-///   1. Initialise Hive local storage.
-///   2. Seed the exercise/food/routine catalogues on first launch.
-///   3. Initialise local notifications.
-///   4. (Optional) initialise Firebase for cloud sync & auth — see
-///      `docs/FIREBASE_SETUP.md`. The app runs fully offline if Firebase is
-///      not configured.
 Future<void> main() async {
+  await runZonedGuarded(_boot, (error, stack) {
+    runApp(_ErrorApp('$error\n\n$stack'));
+  });
+}
+
+Future<void> _boot() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await SystemChrome.setPreferredOrientations([
@@ -30,15 +30,30 @@ Future<void> main() async {
 
   await NotificationService.instance.init();
 
-  // --- Firebase (optional) ---------------------------------------------------
-  // Uncomment after running `flutterfire configure` to enable cloud sync/auth:
-  //
-  //   await Firebase.initializeApp(
-  //     options: DefaultFirebaseOptions.currentPlatform,
-  //   );
-  //
-  // The repositories are designed so a FirestoreSyncService can mirror the
-  // local Hive boxes without touching the UI. See docs/ARCHITECTURE.md.
-
   runApp(const ProviderScope(child: ForgeFitApp()));
+}
+
+class _ErrorApp extends StatelessWidget {
+  const _ErrorApp(this.message);
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: SelectableText(
+              'ForgeFit startup error:\n\n$message',
+              style: const TextStyle(
+                  color: Colors.red, fontSize: 12, fontFamily: 'monospace'),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
