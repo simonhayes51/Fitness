@@ -12,9 +12,7 @@ COPY . .
 
 # Generate Android/iOS stubs so plugin registrants resolve during analysis
 # (not strictly needed for web build, but keeps the cache consistent with CI).
-RUN flutter build web \
-      --release \
-      --service-worker-strategy offline-first
+RUN flutter build web --release
 
 # ── Stage 2: serve with nginx ─────────────────────────────────────────────────
 FROM nginx:1.27-alpine
