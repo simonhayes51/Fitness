@@ -131,6 +131,7 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen> {
 
 class _ExerciseEditor extends StatelessWidget {
   const _ExerciseEditor({
+    super.key,
     required this.exercise,
     required this.onChanged,
     required this.onRemove,
@@ -257,6 +258,7 @@ class _ExerciseEditor extends StatelessWidget {
 
 class _SetRow extends StatefulWidget {
   const _SetRow({
+    super.key,
     required this.index,
     required this.set,
     required this.onChanged,
