@@ -202,7 +202,7 @@ class ProfileScreen extends ConsumerWidget {
     final nameController = TextEditingController(text: profile.name);
     await showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dlgCtx) => AlertDialog(
         title: const Text('Edit name'),
         content: TextField(
           controller: nameController,
@@ -210,14 +210,14 @@ class ProfileScreen extends ConsumerWidget {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dlgCtx),
               child: const Text('Cancel')),
           FilledButton(
             onPressed: () {
               ref
                   .read(profileProvider.notifier)
                   .patch(name: nameController.text.trim());
-              Navigator.pop(context);
+              Navigator.pop(dlgCtx);
             },
             child: const Text('Save'),
           ),

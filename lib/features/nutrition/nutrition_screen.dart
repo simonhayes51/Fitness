@@ -7,6 +7,7 @@ import '../../core/utils/calculations.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/models/food_log.dart';
 import '../../data/models/saved_meal.dart';
+import '../../data/repositories/nutrition_repository.dart';
 import '../../shared/providers/profile_provider.dart';
 import '../../shared/providers/providers.dart';
 import '../../shared/widgets/common.dart';
@@ -293,7 +294,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
 
 class _FastingCard extends StatefulWidget {
   const _FastingCard({required this.repo, required this.onChanged});
-  final dynamic repo;
+  final NutritionRepository repo;
   final VoidCallback onChanged;
 
   @override
@@ -306,8 +307,8 @@ class _FastingCardState extends State<_FastingCard> {
 
   @override
   Widget build(BuildContext context) {
-    final isFasting = widget.repo.isFasting as bool;
-    final duration = widget.repo.fastDuration as Duration;
+    final isFasting = widget.repo.isFasting;
+    final duration = widget.repo.fastDuration;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -321,7 +322,7 @@ class _FastingCardState extends State<_FastingCard> {
                   ? StreamBuilder<int>(
                       stream: _tick,
                       builder: (_, __) {
-                        final d = widget.repo.fastDuration as Duration;
+                        final d = widget.repo.fastDuration;
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -371,13 +372,13 @@ class _FastingCardState extends State<_FastingCard> {
 class _SavedMealsSheet extends StatelessWidget {
   const _SavedMealsSheet(
       {required this.repo, required this.day, required this.onLogged});
-  final dynamic repo;
+  final NutritionRepository repo;
   final DateTime day;
   final VoidCallback onLogged;
 
   @override
   Widget build(BuildContext context) {
-    final meals = repo.savedMeals() as List<SavedMeal>;
+    final meals = repo.savedMeals();
 
     return DraggableScrollableSheet(
       initialChildSize: 0.5,
