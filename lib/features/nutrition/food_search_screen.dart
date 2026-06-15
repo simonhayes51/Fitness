@@ -142,21 +142,21 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
     final ctrl = TextEditingController();
     final result = await showDialog<String>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dlgCtx) => AlertDialog(
         title: const Text('Enter barcode'),
         content: TextField(
           controller: ctrl,
           autofocus: true,
           keyboardType: TextInputType.number,
           decoration: const InputDecoration(hintText: 'e.g. 5000112548167'),
-          onSubmitted: (v) => Navigator.pop(_, v.trim()),
+          onSubmitted: (v) => Navigator.pop(dlgCtx, v.trim()),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(_),
+              onPressed: () => Navigator.pop(dlgCtx),
               child: const Text('Cancel')),
           FilledButton(
-              onPressed: () => Navigator.pop(_, ctrl.text.trim()),
+              onPressed: () => Navigator.pop(dlgCtx, ctrl.text.trim()),
               child: const Text('Look up')),
         ],
       ),

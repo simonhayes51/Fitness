@@ -190,32 +190,21 @@ class ProgressScreen extends ConsumerWidget {
       BuildContext context, WidgetRef ref, double current) async {
     final weightCtrl = TextEditingController(text: Formatters.weight(current));
     final bfCtrl = TextEditingController();
-    final result = await showModalBottomSheet<({double weight, double? bodyFat})>(
+    final result =
+        await showDialog<({double weight, double? bodyFat})>(
       context: context,
-      isScrollControlled: true,
-      builder: (_) => Padding(
-        padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: 20,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-        ),
-        child: Column(
+      builder: (dlgCtx) => AlertDialog(
+        title: const Text('Log body weight'),
+        content: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Log body weight',
-                style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 16),
             TextField(
               controller: weightCtrl,
               autofocus: true,
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(
-                labelText: 'Weight',
-                suffixText: 'kg',
-              ),
+                  labelText: 'Weight', suffixText: 'kg'),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -223,37 +212,26 @@ class ProgressScreen extends ConsumerWidget {
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(
-                labelText: 'Body fat % (optional)',
-                suffixText: '%',
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(_),
-                    child: const Text('Cancel'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: () {
-                      final w = double.tryParse(weightCtrl.text);
-                      if (w == null) return;
-                      Navigator.pop(_, (
-                        weight: w,
-                        bodyFat: double.tryParse(bfCtrl.text),
-                      ));
-                    },
-                    child: const Text('Save'),
-                  ),
-                ),
-              ],
+                  labelText: 'Body fat % (optional)', suffixText: '%'),
             ),
           ],
         ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dlgCtx),
+              child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () {
+              final w = double.tryParse(weightCtrl.text);
+              if (w == null) return;
+              Navigator.pop(dlgCtx, (
+                weight: w,
+                bodyFat: double.tryParse(bfCtrl.text),
+              ));
+            },
+            child: const Text('Save'),
+          ),
+        ],
       ),
     );
     weightCtrl.dispose();

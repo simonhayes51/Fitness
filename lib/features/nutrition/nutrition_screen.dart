@@ -252,7 +252,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
     final ctrl = TextEditingController(text: meal);
     final name = await showDialog<String>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dlgCtx) => AlertDialog(
         title: const Text('Save as meal'),
         content: TextField(
           controller: ctrl,
@@ -261,10 +261,10 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(_),
+              onPressed: () => Navigator.pop(dlgCtx),
               child: const Text('Cancel')),
           FilledButton(
-              onPressed: () => Navigator.pop(_, ctrl.text.trim()),
+              onPressed: () => Navigator.pop(dlgCtx, ctrl.text.trim()),
               child: const Text('Save')),
         ],
       ),
