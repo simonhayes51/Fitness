@@ -14,8 +14,7 @@ COPY . .
 # (not strictly needed for web build, but keeps the cache consistent with CI).
 RUN flutter build web \
       --release \
-      --pwa-strategy offline-first \
-      --web-renderer canvaskit
+      --service-worker-strategy offline-first
 
 # ── Stage 2: serve with nginx ─────────────────────────────────────────────────
 FROM nginx:1.27-alpine
