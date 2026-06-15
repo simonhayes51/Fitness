@@ -11,6 +11,14 @@ import '../../shared/providers/profile_provider.dart';
 import '../../shared/providers/providers.dart';
 import '../../shared/widgets/common.dart';
 
+// Simple result holder for the log-weight dialog (avoids Dart record types
+// which have web-compilation edge cases).
+class _WeightResult {
+  const _WeightResult(this.weight, this.bodyFat);
+  final double weight;
+  final double? bodyFat;
+}
+
 /// Analytics hub: body-weight trend, training volume, weekly muscle-group
 /// distribution, and goal tracking.
 class ProgressScreen extends ConsumerWidget {
@@ -49,44 +57,7 @@ class ProgressScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (metrics.isNotEmpty) ...[
-                    Builder(builder: (ctx) {
-                      final latest = metrics.last;
-                      final displayW = profile.unitSystem.weightUnit == 'kg'
-                          ? latest.weightKg
-                          : latest.weightKg * 2.20462;
-                      return Row(
-                        children: [
-                          Text(
-                            '${Formatters.weight(displayW)} ${profile.unitSystem.weightUnit}',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w900, fontSize: 22),
-                          ),
-                          if (latest.bodyFatPct != null) ...[
-                            const SizedBox(width: 16),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: AppColors.info.withOpacity(0.14),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                '${latest.bodyFatPct!.toStringAsFixed(1)}% BF',
-                                style: const TextStyle(
-                                    color: AppColors.info,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 13),
-                              ),
-                            ),
-                          ],
-                          const Spacer(),
-                          Text(Formatters.relativeDay(latest.date),
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: Theme.of(ctx).hintColor)),
-                        ],
-                      );
-                    }),
+                    _latestWeightRow(context, metrics.last, profile),
                     const SizedBox(height: 12),
                   ],
                   metrics.length < 2
@@ -190,8 +161,7 @@ class ProgressScreen extends ConsumerWidget {
       BuildContext context, WidgetRef ref, double current) async {
     final weightCtrl = TextEditingController(text: Formatters.weight(current));
     final bfCtrl = TextEditingController();
-    final result =
-        await showDialog<({double weight, double? bodyFat})>(
+    final result = await showDialog<_WeightResult>(
       context: context,
       builder: (dlgCtx) => AlertDialog(
         title: const Text('Log body weight'),
@@ -224,10 +194,9 @@ class ProgressScreen extends ConsumerWidget {
             onPressed: () {
               final w = double.tryParse(weightCtrl.text);
               if (w == null) return;
-              Navigator.pop(dlgCtx, (
-                weight: w,
-                bodyFat: double.tryParse(bfCtrl.text),
-              ));
+              Navigator.pop(
+                  dlgCtx,
+                  _WeightResult(w, double.tryParse(bfCtrl.text)));
             },
             child: const Text('Save'),
           ),
@@ -242,6 +211,44 @@ class ProgressScreen extends ConsumerWidget {
         );
     await ref.read(profileProvider.notifier).patch(weightKg: result.weight);
     ref.read(dataRevisionProvider.notifier).state++;
+  }
+
+  Widget _latestWeightRow(
+      BuildContext context, BodyMetric latest, dynamic profile) {
+    final isMetric = profile.unitSystem.weightUnit == 'kg';
+    final displayW =
+        isMetric ? latest.weightKg : latest.weightKg * 2.20462;
+    return Row(
+      children: [
+        Text(
+          '${Formatters.weight(displayW)} ${profile.unitSystem.weightUnit}',
+          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22),
+        ),
+        if (latest.bodyFatPct != null) ...[
+          const SizedBox(width: 12),
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            decoration: BoxDecoration(
+              color: AppColors.info.withOpacity(0.14),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              '${latest.bodyFatPct!.toStringAsFixed(1)}% BF',
+              style: const TextStyle(
+                  color: AppColors.info,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13),
+            ),
+          ),
+        ],
+        const Spacer(),
+        Text(
+          Formatters.relativeDay(latest.date),
+          style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor),
+        ),
+      ],
+    );
   }
 
   Future<void> _addGoal(BuildContext context, WidgetRef ref) async {
