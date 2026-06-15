@@ -10,6 +10,7 @@ import '../../shared/providers/active_workout_provider.dart';
 import '../../shared/providers/providers.dart';
 import '../../shared/widgets/common.dart';
 import 'routine_editor_screen.dart';
+import 'workout_edit_screen.dart';
 
 /// Workout hub: start an empty session, launch a routine template, browse
 /// recent history.
@@ -73,6 +74,8 @@ class WorkoutHomeScreen extends ConsumerWidget {
                   child: _HistoryCard(
                     workout: w,
                     onRepeat: () => _repeatWorkout(context, ref, w),
+                    onDelete: () => _deleteWorkout(context, ref, w),
+                    onEdit: () => _editWorkout(context, ref, w),
                   ),
                 )),
         ],
@@ -105,6 +108,40 @@ class WorkoutHomeScreen extends ConsumerWidget {
   void _repeatWorkout(BuildContext context, WidgetRef ref, Workout w) {
     ref.read(activeWorkoutProvider.notifier).startFromWorkoutHistory(w);
     context.push('/active-workout');
+  }
+
+  Future<void> _deleteWorkout(
+      BuildContext context, WidgetRef ref, Workout w) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dlgCtx) => AlertDialog(
+        title: const Text('Delete workout?'),
+        content: Text(
+            'This will permanently remove "${w.name}" from your history.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dlgCtx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: AppColors.danger),
+            onPressed: () => Navigator.pop(dlgCtx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await ref.read(workoutRepositoryProvider).delete(w.id);
+    ref.read(dataRevisionProvider.notifier).state++;
+  }
+
+  Future<void> _editWorkout(
+      BuildContext context, WidgetRef ref, Workout w) async {
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => WorkoutEditScreen(workout: w),
+    ));
+    ref.read(dataRevisionProvider.notifier).state++;
   }
 }
 
@@ -165,9 +202,16 @@ class _RoutineCard extends StatelessWidget {
 }
 
 class _HistoryCard extends StatelessWidget {
-  const _HistoryCard({required this.workout, required this.onRepeat});
+  const _HistoryCard({
+    required this.workout,
+    required this.onRepeat,
+    required this.onDelete,
+    required this.onEdit,
+  });
   final Workout workout;
   final VoidCallback onRepeat;
+  final VoidCallback onDelete;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -208,16 +252,37 @@ class _HistoryCard extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerRight,
-            child: OutlinedButton.icon(
-              onPressed: onRepeat,
-              style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(0, 34),
-                  padding: const EdgeInsets.symmetric(horizontal: 12)),
-              icon: const Icon(Icons.replay, size: 16),
-              label: const Text('Repeat', style: TextStyle(fontSize: 13)),
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              OutlinedButton.icon(
+                onPressed: onRepeat,
+                style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 34),
+                    padding: const EdgeInsets.symmetric(horizontal: 12)),
+                icon: const Icon(Icons.replay, size: 16),
+                label: const Text('Repeat', style: TextStyle(fontSize: 13)),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: onEdit,
+                style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 34),
+                    padding: const EdgeInsets.symmetric(horizontal: 12)),
+                icon: const Icon(Icons.edit_outlined, size: 16),
+                label: const Text('Edit', style: TextStyle(fontSize: 13)),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton(
+                onPressed: onDelete,
+                style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 34),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    foregroundColor: AppColors.danger,
+                    side: const BorderSide(color: AppColors.danger)),
+                child: const Icon(Icons.delete_outline, size: 16),
+              ),
+            ],
           ),
         ],
       ),

@@ -150,6 +150,14 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
                 await repo.addWater(_day, ml);
                 ref.read(dataRevisionProvider.notifier).state++;
               },
+              onCustom: (ml) async {
+                await repo.addWater(_day, ml);
+                ref.read(dataRevisionProvider.notifier).state++;
+              },
+              onReset: () async {
+                await repo.setWater(_day, 0);
+                ref.read(dataRevisionProvider.notifier).state++;
+              },
             ),
           ),
 
@@ -467,14 +475,51 @@ class _WaterCard extends StatelessWidget {
     required this.water,
     required this.goalMl,
     required this.onAdd,
+    required this.onCustom,
+    required this.onReset,
   });
   final WaterLog water;
   final double goalMl;
-  final ValueChanged<double> onAdd;
+  final Future<void> Function(double) onAdd;
+  final Future<void> Function(double) onCustom;
+  final Future<void> Function() onReset;
+
+  Future<void> _showCustomDialog(BuildContext context) async {
+    final ctrl = TextEditingController();
+    final ml = await showDialog<double>(
+      context: context,
+      builder: (dlgCtx) => AlertDialog(
+        title: const Text('Add drink'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            labelText: 'Amount',
+            suffixText: 'ml',
+            hintText: 'e.g. 330',
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dlgCtx),
+              child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () =>
+                Navigator.pop(dlgCtx, double.tryParse(ctrl.text)),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (ml != null && ml > 0) await onCustom(ml);
+  }
 
   @override
   Widget build(BuildContext context) {
     final pct = (water.milliliters / goalMl).clamp(0.0, 1.0);
+    final liters = water.milliliters / 1000;
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -483,12 +528,19 @@ class _WaterCard extends StatelessWidget {
             children: [
               const Icon(Icons.water_drop, color: AppColors.water),
               const SizedBox(width: 8),
-              Text('${(water.milliliters / 1000).toStringAsFixed(1)} L',
+              Text('${liters.toStringAsFixed(1)} L',
                   style: const TextStyle(
                       fontWeight: FontWeight.w900, fontSize: 18)),
               const Spacer(),
               Text('Goal ${(goalMl / 1000).toStringAsFixed(1)} L',
                   style: TextStyle(color: Theme.of(context).hintColor)),
+              if (water.milliliters > 0)
+                IconButton(
+                  icon: Icon(Icons.refresh,
+                      size: 18, color: Theme.of(context).hintColor),
+                  tooltip: 'Reset',
+                  onPressed: onReset,
+                ),
             ],
           ),
           const SizedBox(height: 10),
@@ -502,16 +554,20 @@ class _WaterCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              for (final ml in [250.0, 500.0, 750.0])
-                Padding(
-                  padding: const EdgeInsets.only(right: 10),
-                  child: OutlinedButton(
-                    onPressed: () => onAdd(ml),
-                    child: Text('+${ml.round()} ml'),
-                  ),
+              for (final ml in [250.0, 330.0, 500.0, 750.0])
+                OutlinedButton(
+                  onPressed: () async => onAdd(ml),
+                  child: Text('+${ml.round()} ml'),
                 ),
+              OutlinedButton.icon(
+                onPressed: () => _showCustomDialog(context),
+                icon: const Icon(Icons.edit_outlined, size: 16),
+                label: const Text('Custom'),
+              ),
             ],
           ),
         ],

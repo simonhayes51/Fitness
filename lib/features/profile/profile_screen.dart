@@ -199,14 +199,53 @@ class ProfileScreen extends ConsumerWidget {
 
   Future<void> _editProfile(BuildContext context, WidgetRef ref) async {
     final profile = ref.read(profileProvider);
-    final nameController = TextEditingController(text: profile.name);
+    final nameCtrl = TextEditingController(text: profile.name);
+    final weightCtrl = TextEditingController(
+        text: Formatters.weight(profile.weightKg));
+    final heightCtrl = TextEditingController(
+        text: '${profile.heightCm.round()}');
+    final ageCtrl = TextEditingController(text: '${profile.age}');
+
     await showDialog(
       context: context,
       builder: (dlgCtx) => AlertDialog(
-        title: const Text('Edit name'),
-        content: TextField(
-          controller: nameController,
-          decoration: const InputDecoration(labelText: 'Name'),
+        title: const Text('Edit profile'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(labelText: 'Name'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: weightCtrl,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  labelText: 'Weight',
+                  suffixText: profile.unitSystem.weightUnit,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: heightCtrl,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Height',
+                  suffixText: profile.unitSystem.heightUnit,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: ageCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Age'),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -214,9 +253,24 @@ class ProfileScreen extends ConsumerWidget {
               child: const Text('Cancel')),
           FilledButton(
             onPressed: () {
-              ref
-                  .read(profileProvider.notifier)
-                  .patch(name: nameController.text.trim());
+              double? weightKg = double.tryParse(weightCtrl.text);
+              if (weightKg != null &&
+                  profile.unitSystem == UnitSystem.imperial) {
+                weightKg = weightKg / 2.20462;
+              }
+              double? heightCm = double.tryParse(heightCtrl.text);
+              if (heightCm != null &&
+                  profile.unitSystem == UnitSystem.imperial) {
+                heightCm = heightCm * 2.54;
+              }
+              ref.read(profileProvider.notifier).patch(
+                    name: nameCtrl.text.trim().isEmpty
+                        ? null
+                        : nameCtrl.text.trim(),
+                    weightKg: weightKg,
+                    heightCm: heightCm,
+                    age: int.tryParse(ageCtrl.text),
+                  );
               Navigator.pop(dlgCtx);
             },
             child: const Text('Save'),
@@ -224,5 +278,9 @@ class ProfileScreen extends ConsumerWidget {
         ],
       ),
     );
+    nameCtrl.dispose();
+    weightCtrl.dispose();
+    heightCtrl.dispose();
+    ageCtrl.dispose();
   }
 }

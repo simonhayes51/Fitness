@@ -189,7 +189,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           _segSex(),
           const SizedBox(height: 20),
           _slider('Age', _age.toDouble(), 14, 90, '${_age}y',
-              (v) => setState(() => _age = v.round())),
+              (v) => setState(() => _age = v.round()),
+              divisions: 76),
           _slider(
             'Height',
             _height,
@@ -198,7 +199,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             _units == UnitSystem.metric
                 ? '${_height.round()} cm'
                 : '${(_height / 2.54).round()} in',
-            (v) => setState(() => _height = v),
+            (v) => setState(() => _height = v.roundToDouble()),
+            divisions: 100,
           ),
           _slider(
             'Weight',
@@ -208,7 +210,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             _units == UnitSystem.metric
                 ? '${_weight.round()} kg'
                 : '${(_weight * 2.20462).round()} lbs',
-            (v) => setState(() => _weight = v),
+            (v) => setState(() => _weight = v.roundToDouble()),
+            divisions: 165,
           ),
         ],
       ),
@@ -278,7 +281,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Widget _slider(String label, double value, double min, double max,
-      String display, ValueChanged<double> onChanged) {
+      String display, ValueChanged<double> onChanged, {int? divisions}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -296,6 +299,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           value: value.clamp(min, max),
           min: min,
           max: max,
+          divisions: divisions,
           onChanged: onChanged,
         ),
       ],
