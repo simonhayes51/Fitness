@@ -52,7 +52,7 @@ class AppTheme {
           color: isDark ? Colors.white : const Color(0xFF11131A),
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: isDark ? AppColors.darkCard : AppColors.lightSurface,
         elevation: 0,
         margin: EdgeInsets.zero,

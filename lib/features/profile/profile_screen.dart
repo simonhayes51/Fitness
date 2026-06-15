@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/calculations.dart';
 import '../../core/utils/formatters.dart';
@@ -127,9 +128,9 @@ class ProfileScreen extends ConsumerWidget {
               child: Column(
                 children: [
                   _row('Height',
-                      '${profile.heightCm.round()} ${profile.unitSystem.heightUnit == 'in' ? 'cm' : 'cm'}'),
+                      '${profile.heightCm.round()} ${profile.unitSystem.heightUnit}'),
                   _row('Weight',
-                      '${Formatters.weight(profile.weightKg)} ${profile.unitSystem.weightUnit == 'lbs' ? 'kg' : 'kg'}'),
+                      '${Formatters.weight(profile.weightKg)} ${profile.unitSystem.weightUnit}'),
                   _row('Age', '${profile.age}'),
                   _row('Sex', profile.sex.name, last: true),
                 ],
