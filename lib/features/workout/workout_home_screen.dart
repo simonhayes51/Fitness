@@ -24,7 +24,16 @@ class WorkoutHomeScreen extends ConsumerWidget {
     final history = ref.watch(workoutRepositoryProvider).getCompleted();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Workout')),
+      appBar: AppBar(
+        title: const Text('Train'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.menu_book_outlined),
+            tooltip: 'Exercise Library',
+            onPressed: () => context.push('/exercises'),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _startEmpty(context, ref),
         backgroundColor: AppColors.primary,

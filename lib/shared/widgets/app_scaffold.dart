@@ -21,11 +21,11 @@ class AppScaffold extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
 
   static const _destinations = [
-    _NavDest(Icons.home_outlined, Icons.home_rounded, 'Home'),
-    _NavDest(Icons.fitness_center_outlined, Icons.fitness_center, 'Workout'),
-    _NavDest(Icons.menu_book_outlined, Icons.menu_book, 'Library'),
+    _NavDest(Icons.home_outlined, Icons.home_rounded, 'Dashboard'),
+    _NavDest(Icons.fitness_center_outlined, Icons.fitness_center, 'Train'),
     _NavDest(Icons.restaurant_outlined, Icons.restaurant, 'Nutrition'),
     _NavDest(Icons.insights_outlined, Icons.insights, 'Progress'),
+    _NavDest(Icons.person_outline, Icons.person, 'Profile'),
   ];
 
   @override
@@ -74,20 +74,20 @@ class _ResumeWorkoutBanner extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Row(
             children: [
-              const Icon(Icons.timer_outlined, color: Colors.white, size: 20),
+              const Icon(Icons.timer_outlined, color: Colors.black, size: 20),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   'Workout in progress · $name',
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: Colors.black,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
               const Text('Resume',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
-              const Icon(Icons.chevron_right, color: Colors.white),
+                  style: TextStyle(color: Colors.black, fontWeight: FontWeight.w800)),
+              const Icon(Icons.chevron_right, color: Colors.black),
             ],
           ),
         ),

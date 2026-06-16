@@ -2,8 +2,8 @@
 class AppConstants {
   AppConstants._();
 
-  static const String appName = 'ForgeFit';
-  static const String tagline = 'Forge your strongest self.';
+  static const String appName = 'EVOLVE';
+  static const String tagline = 'Train. Eat. Recover. Progress.';
 
   // Hive box names.
   static const String boxExercises = 'exercises';

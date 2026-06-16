@@ -26,6 +26,12 @@ class WeeklyVolume {
   final double lastWeek;
 }
 
+class RecentPR {
+  const RecentPR({required this.exerciseName, required this.estimated1RM});
+  final String exerciseName;
+  final double estimated1RM;
+}
+
 /// Persists workout sessions and derives history/analytics aggregates.
 class WorkoutRepository {
   WorkoutRepository(this._db);
@@ -211,6 +217,47 @@ class WorkoutRepository {
   }
 
   int get totalWorkouts => getCompleted().length;
+
+  /// Returns exercises where a new estimated-1RM PR was set in the last 7 days.
+  List<RecentPR> recentPRs() {
+    final cutoff = DateTime.now().subtract(const Duration(days: 7));
+    // All-time best e1RM per exercise from workouts BEFORE the cutoff.
+    final allTimeBest = <String, double>{};
+    final recentBest = <String, double>{};
+    final exerciseNames = <String, String>{};
+
+    for (final w in getCompleted()) {
+      final d = w.completedAt ?? w.startedAt;
+      final isRecent = d.isAfter(cutoff);
+      for (final ex in w.exercises) {
+        exerciseNames[ex.exerciseId] = ex.exerciseName;
+        for (final s in ex.sets.where((s) => s.completed)) {
+          final e1rm = s.estimated1RM;
+          if (!isRecent) {
+            final prev = allTimeBest[ex.exerciseId] ?? 0;
+            if (e1rm > prev) allTimeBest[ex.exerciseId] = e1rm;
+          } else {
+            final prev = recentBest[ex.exerciseId] ?? 0;
+            if (e1rm > prev) recentBest[ex.exerciseId] = e1rm;
+          }
+        }
+      }
+    }
+
+    // A PR is a recent best that exceeds the all-time best before that period.
+    final prs = <RecentPR>[];
+    for (final entry in recentBest.entries) {
+      final prev = allTimeBest[entry.key] ?? 0;
+      if (entry.value > prev && entry.value > 0) {
+        prs.add(RecentPR(
+          exerciseName: exerciseNames[entry.key] ?? entry.key,
+          estimated1RM: entry.value,
+        ));
+      }
+    }
+    prs.sort((a, b) => b.estimated1RM.compareTo(a.estimated1RM));
+    return prs.take(3).toList();
+  }
 
   /// Current consecutive-day logging streak.
   int currentStreak() {

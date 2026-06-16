@@ -183,10 +183,10 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   void _shareCard(BuildContext context, String name, int workouts, int streak) {
-    final text = '💪 ${name.isEmpty ? 'I' : name} on ForgeFit\n'
+    final text = '💪 ${name.isEmpty ? 'I' : name} on EVOLVE\n'
         '🏋️ $workouts workouts logged\n'
         '🔥 $streak-day streak\n\n'
-        'Forging my strongest self with #ForgeFit';
+        'Train. Eat. Recover. Progress. #EVOLVE';
     if (kIsWeb) {
       Clipboard.setData(ClipboardData(text: text));
       ScaffoldMessenger.of(context).showSnackBar(

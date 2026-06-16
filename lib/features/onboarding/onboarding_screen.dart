@@ -148,12 +148,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 size: 56, color: Colors.white),
           ),
           const SizedBox(height: 28),
-          const Text('Welcome to ForgeFit',
+          const Text('Welcome to EVOLVE',
               style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900)),
           const SizedBox(height: 12),
           Text(
-            'Track workouts, dial in nutrition, and watch your strength climb — '
-            'all in one place. Let\'s set up your profile.',
+            'Train. Eat. Recover. Progress. — your complete fitness operating '
+            'system. Track workouts, nutrition, body composition and more. '
+            'Let\'s set up your profile.',
             style: TextStyle(
                 color: Theme.of(context).hintColor, fontSize: 16, height: 1.4),
           ),

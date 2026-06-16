@@ -1,11 +1,11 @@
 {
-    "name": "ForgeFit",
-    "short_name": "ForgeFit",
+    "name": "EVOLVE",
+    "short_name": "EVOLVE",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#121212",
-    "theme_color": "#FF6B35",
-    "description": "All-in-One Gym & Nutrition Management App.",
+    "background_color": "#1C1C1E",
+    "theme_color": "#F4B400",
+    "description": "Train. Eat. Recover. Progress. — Your complete fitness operating system.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

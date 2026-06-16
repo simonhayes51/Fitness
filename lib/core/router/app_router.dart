@@ -36,39 +36,44 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const OnboardingScreen(),
       ),
 
-      // Bottom-navigation shell.
+      // Bottom-navigation shell: Dashboard | Train | Nutrition | Progress | Profile
       StatefulShellRoute.indexedStack(
         builder: (context, state, navShell) =>
             AppScaffold(navigationShell: navShell),
         branches: [
+          // 0 — Dashboard
           StatefulShellBranch(routes: [
             GoRoute(
               path: '/dashboard',
               builder: (context, state) => const DashboardScreen(),
             ),
           ]),
+          // 1 — Train (workout home + exercise library as sub-screen)
           StatefulShellBranch(routes: [
             GoRoute(
               path: '/workout',
               builder: (context, state) => const WorkoutHomeScreen(),
             ),
           ]),
-          StatefulShellBranch(routes: [
-            GoRoute(
-              path: '/exercises',
-              builder: (context, state) => const ExerciseLibraryScreen(),
-            ),
-          ]),
+          // 2 — Nutrition
           StatefulShellBranch(routes: [
             GoRoute(
               path: '/nutrition',
               builder: (context, state) => const NutritionScreen(),
             ),
           ]),
+          // 3 — Progress
           StatefulShellBranch(routes: [
             GoRoute(
               path: '/progress',
               builder: (context, state) => const ProgressScreen(),
+            ),
+          ]),
+          // 4 — Profile (now a primary tab)
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: '/profile',
+              builder: (context, state) => const ProfileScreen(),
             ),
           ]),
         ],
@@ -81,15 +86,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const ActiveWorkoutScreen(),
       ),
       GoRoute(
+        path: '/exercises',
+        parentNavigatorKey: rootKey,
+        builder: (context, state) => const ExerciseLibraryScreen(),
+      ),
+      GoRoute(
         path: '/exercise/:id',
         parentNavigatorKey: rootKey,
         builder: (context, state) =>
             ExerciseDetailScreen(exerciseId: state.pathParameters['id']!),
-      ),
-      GoRoute(
-        path: '/profile',
-        parentNavigatorKey: rootKey,
-        builder: (context, state) => const ProfileScreen(),
       ),
       GoRoute(
         path: '/settings',

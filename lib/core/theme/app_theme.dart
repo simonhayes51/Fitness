@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'app_colors.dart';
 
-/// Material 3 theming for ForgeFit. Dark-mode-first, with a matching light
+/// Material 3 theming for EVOLVE. Dark-mode-first, with a matching light
 /// theme. Typography uses Inter via google_fonts with tabular figures for
 /// clean number alignment in logs and charts.
 class AppTheme {
@@ -64,7 +64,7 @@ class AppTheme {
         style: FilledButton.styleFrom(
           minimumSize: const Size.fromHeight(54),
           backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
+          foregroundColor: Colors.black,
           textStyle: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
