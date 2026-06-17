@@ -2,25 +2,55 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/models/body_metric.dart';
 import '../../data/models/goal.dart';
+import '../../data/repositories/nutrition_repository.dart';
+import '../../data/repositories/profile_repository.dart';
+import '../../data/repositories/workout_repository.dart';
 import '../../shared/providers/profile_provider.dart';
 import '../../shared/providers/providers.dart';
 import '../../shared/widgets/common.dart';
 
-// Simple result holder for the log-weight dialog (avoids Dart record types
-// which have web-compilation edge cases).
 class _WeightResult {
   const _WeightResult(this.weight, this.bodyFat);
   final double weight;
   final double? bodyFat;
 }
 
-/// Analytics hub: body-weight trend, training volume, weekly muscle-group
-/// distribution, and goal tracking.
+class _MeasurementResult {
+  const _MeasurementResult(this.values);
+  final Map<String, double> values;
+}
+
+class _ConsistencyData {
+  const _ConsistencyData({
+    required this.score,
+    required this.trainingPct,
+    required this.weightLogPct,
+    required this.nutritionPct,
+    required this.waterPct,
+  });
+  final int score;
+  final double trainingPct;
+  final double weightLogPct;
+  final double nutritionPct;
+  final double waterPct;
+}
+
+/// Standard body measurement sites.
+const _measurementSites = [
+  'Waist',
+  'Chest',
+  'Arms',
+  'Hips',
+  'Thighs',
+  'Neck',
+];
+
+/// Analytics hub: body-weight trend, measurements, consistency score,
+/// training volume, weekly muscle-group distribution, and goal tracking.
 class ProgressScreen extends ConsumerWidget {
   const ProgressScreen({super.key});
 
@@ -29,18 +59,30 @@ class ProgressScreen extends ConsumerWidget {
     ref.watch(dataRevisionProvider);
     final profileRepo = ref.watch(profileRepositoryProvider);
     final workouts = ref.watch(workoutRepositoryProvider);
+    final nutritionRepo = ref.watch(nutritionRepositoryProvider);
     final profile = ref.watch(profileProvider);
 
-    final metrics = profileRepo.bodyMetrics();
+    final weightMetrics = profileRepo.weightMetrics();
+    final allMetrics = profileRepo.bodyMetrics();
+    final latestMeasurements = profileRepo.latestMeasurements();
+    final previousMeasurements = profileRepo.previousMeasurements();
     final volumeByDay = workouts.volumeByDay();
     final weeklySets = workouts.weeklySetsByMuscle(weeks: 1);
     final goals = profileRepo.goals();
+    final consistency = _computeConsistency(workouts, profileRepo, nutritionRepo);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Progress')),
       body: ListView(
         padding: const EdgeInsets.only(bottom: 24),
         children: [
+          // Consistency score.
+          const SectionHeader('Consistency Score'),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _ConsistencyCard(data: consistency),
+          ),
+
           // Body weight.
           SectionHeader(
             'Body weight',
@@ -56,12 +98,12 @@ class ProgressScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (metrics.isNotEmpty) ...[
+                  if (weightMetrics.isNotEmpty) ...[
                     _latestWeightRow(
-                        context, metrics.last, profile.unitSystem.weightUnit),
+                        context, weightMetrics.last, profile.unitSystem.weightUnit),
                     const SizedBox(height: 12),
                   ],
-                  metrics.length < 2
+                  weightMetrics.length < 2
                       ? const SizedBox(
                           height: 120,
                           child: Center(
@@ -70,7 +112,7 @@ class ProgressScreen extends ConsumerWidget {
                       : SizedBox(
                           height: 180,
                           child: _WeightChart(
-                            metrics: metrics,
+                            metrics: weightMetrics,
                             unit: profile.unitSystem.weightUnit,
                             toDisplay: (kg) =>
                                 profile.unitSystem.weightUnit == 'kg'
@@ -80,6 +122,24 @@ class ProgressScreen extends ConsumerWidget {
                         ),
                 ],
               ),
+            ),
+          ),
+
+          // Body measurements.
+          SectionHeader(
+            'Body Measurements',
+            action: TextButton.icon(
+              onPressed: () => _logMeasurements(context, ref, latestMeasurements),
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Log'),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _MeasurementCard(
+              latest: latestMeasurements,
+              previous: previousMeasurements,
+              lastDate: allMetrics.isNotEmpty ? allMetrics.last.date : null,
             ),
           ),
 
@@ -158,6 +218,63 @@ class ProgressScreen extends ConsumerWidget {
     );
   }
 
+  _ConsistencyData _computeConsistency(
+    WorkoutRepository workouts,
+    ProfileRepository profileRepo,
+    NutritionRepository nutritionRepo,
+  ) {
+    final now = DateTime.now();
+    final cutoff = now.subtract(const Duration(days: 30));
+    const totalDays = 30;
+
+    // Training days in last 30.
+    final trainedDays = <String>{};
+    for (final w in workouts.getCompleted()) {
+      final d = w.completedAt ?? w.startedAt;
+      if (d.isAfter(cutoff)) {
+        trainedDays.add('${d.year}-${d.month}-${d.day}');
+      }
+    }
+
+    // Weight log days in last 30.
+    final weightDays = <String>{};
+    for (final m in profileRepo.weightMetrics()) {
+      if (m.date.isAfter(cutoff)) {
+        weightDays.add('${m.date.year}-${m.date.month}-${m.date.day}');
+      }
+    }
+
+    // Nutrition & water days.
+    int nutritionDays = 0;
+    int waterDays = 0;
+    final today = DateTime(now.year, now.month, now.day);
+    for (int i = 0; i < totalDays; i++) {
+      final day = today.subtract(Duration(days: i));
+      if (nutritionRepo.entriesForDay(day).isNotEmpty) nutritionDays++;
+      if (nutritionRepo.waterForDay(day).milliliters >= 2000) waterDays++;
+    }
+
+    // Targets: 17 workout days (≈4/wk), 8 weight logs (2/wk), 30 nutrition, 30 water.
+    final trainingPct = (trainedDays.length / 17).clamp(0.0, 1.0);
+    final weightLogPct = (weightDays.length / 8).clamp(0.0, 1.0);
+    final nutritionPct = (nutritionDays / totalDays).clamp(0.0, 1.0);
+    final waterPct = (waterDays / totalDays).clamp(0.0, 1.0);
+
+    final rawScore = (trainingPct * 40) +
+        (weightLogPct * 20) +
+        (nutritionPct * 25) +
+        (waterPct * 15);
+    final score = rawScore.round().clamp(0, 100);
+
+    return _ConsistencyData(
+      score: score,
+      trainingPct: trainingPct,
+      weightLogPct: weightLogPct,
+      nutritionPct: nutritionPct,
+      waterPct: waterPct,
+    );
+  }
+
   Future<void> _logWeight(
       BuildContext context, WidgetRef ref, double current) async {
     final weightCtrl = TextEditingController(text: Formatters.weight(current));
@@ -214,38 +331,176 @@ class ProgressScreen extends ConsumerWidget {
     ref.read(dataRevisionProvider.notifier).state++;
   }
 
+  Future<void> _logMeasurements(
+      BuildContext context, WidgetRef ref, Map<String, double> latest) async {
+    final controllers = {
+      for (final site in _measurementSites)
+        site: TextEditingController(
+            text: latest.containsKey(site)
+                ? latest[site]!.toStringAsFixed(1)
+                : ''),
+    };
+    // Custom site support
+    final customSiteCtrl = TextEditingController();
+    final customValueCtrl = TextEditingController();
+
+    final result = await showDialog<_MeasurementResult>(
+      context: context,
+      builder: (dlgCtx) => AlertDialog(
+        title: const Text('Log measurements'),
+        content: SizedBox(
+          width: 340,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final site in _measurementSites)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: TextField(
+                      controller: controllers[site],
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        labelText: site,
+                        suffixText: 'cm',
+                      ),
+                    ),
+                  ),
+                const Divider(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: TextField(
+                        controller: customSiteCtrl,
+                        textCapitalization: TextCapitalization.words,
+                        decoration:
+                            const InputDecoration(labelText: 'Custom site'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: customValueCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        decoration: const InputDecoration(
+                            labelText: 'cm'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dlgCtx),
+              child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () {
+              final values = <String, double>{};
+              for (final site in _measurementSites) {
+                final v = double.tryParse(controllers[site]!.text);
+                if (v != null) values[site] = v;
+              }
+              final cSite = customSiteCtrl.text.trim();
+              final cVal = double.tryParse(customValueCtrl.text);
+              if (cSite.isNotEmpty && cVal != null) values[cSite] = cVal;
+              Navigator.pop(dlgCtx, _MeasurementResult(values));
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    for (final c in controllers.values) {
+      c.dispose();
+    }
+    customSiteCtrl.dispose();
+    customValueCtrl.dispose();
+    if (result == null || result.values.isEmpty) return;
+    await ref.read(profileRepositoryProvider).saveBodyMetric(
+          BodyMetric(weightKg: 0, measurements: result.values),
+        );
+    ref.read(dataRevisionProvider.notifier).state++;
+  }
+
   Widget _latestWeightRow(
       BuildContext context, BodyMetric latest, String weightUnit) {
     final displayW =
         weightUnit == 'kg' ? latest.weightKg : latest.weightKg * 2.20462;
-    return Row(
+    final bf = latest.bodyFatPct;
+    final leanKg = bf != null ? latest.weightKg * (1 - bf / 100) : null;
+    final fatKg = bf != null ? latest.weightKg * (bf / 100) : null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '${Formatters.weight(displayW)} $weightUnit',
-          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22),
+        Row(
+          children: [
+            Text(
+              '${Formatters.weight(displayW)} $weightUnit',
+              style:
+                  const TextStyle(fontWeight: FontWeight.w900, fontSize: 22),
+            ),
+            if (bf != null) ...[
+              const SizedBox(width: 12),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.info.withOpacity(0.14),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${bf.toStringAsFixed(1)}% BF',
+                  style: const TextStyle(
+                      color: AppColors.info,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13),
+                ),
+              ),
+            ],
+            const Spacer(),
+            Text(
+              Formatters.relativeDay(latest.date),
+              style:
+                  TextStyle(fontSize: 12, color: Theme.of(context).hintColor),
+            ),
+          ],
         ),
-        if (latest.bodyFatPct != null) ...[
-          const SizedBox(width: 12),
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-            decoration: BoxDecoration(
-              color: AppColors.info.withOpacity(0.14),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              '${latest.bodyFatPct!.toStringAsFixed(1)}% BF',
-              style: const TextStyle(
-                  color: AppColors.info,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13),
-            ),
+        if (leanKg != null && fatKg != null) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _compositionChip('Lean', leanKg, weightUnit, AppColors.success),
+              const SizedBox(width: 10),
+              _compositionChip('Fat', fatKg, weightUnit, AppColors.danger),
+            ],
           ),
         ],
-        const Spacer(),
+      ],
+    );
+  }
+
+  Widget _compositionChip(
+      String label, double kg, String unit, Color color) {
+    final display = unit == 'kg' ? kg : kg * 2.20462;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+            width: 8,
+            height: 8,
+            decoration:
+                BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 5),
         Text(
-          Formatters.relativeDay(latest.date),
-          style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor),
+          '$label ${Formatters.weight(display)} $unit',
+          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
         ),
       ],
     );
@@ -299,6 +554,258 @@ class ProgressScreen extends ConsumerWidget {
     ref.read(dataRevisionProvider.notifier).state++;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Consistency score card.
+// ---------------------------------------------------------------------------
+
+class _ConsistencyCard extends StatelessWidget {
+  const _ConsistencyCard({required this.data});
+  final _ConsistencyData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final score = data.score;
+    final color = score >= 80
+        ? AppColors.success
+        : score >= 50
+            ? AppColors.primary
+            : AppColors.danger;
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                '$score',
+                style: TextStyle(
+                    fontSize: 48,
+                    fontWeight: FontWeight.w900,
+                    color: color,
+                    height: 1),
+              ),
+              const Text(' / 100',
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey)),
+              const Spacer(),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    score >= 80
+                        ? 'Excellent'
+                        : score >= 60
+                            ? 'Good'
+                            : score >= 40
+                                ? 'Building'
+                                : 'Getting started',
+                    style: TextStyle(
+                        color: color,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14),
+                  ),
+                  const Text('Last 30 days',
+                      style: TextStyle(fontSize: 11, color: Colors.grey)),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _bar(context, 'Training', data.trainingPct, AppColors.primary,
+              '(target 4/wk)'),
+          _bar(context, 'Nutrition', data.nutritionPct, AppColors.success,
+              '(daily logging)'),
+          _bar(context, 'Hydration', data.waterPct, AppColors.info,
+              '(2L goal)'),
+          _bar(context, 'Weight log', data.weightLogPct, AppColors.secondary,
+              '(2×/wk)'),
+        ],
+      ),
+    );
+  }
+
+  Widget _bar(BuildContext context, String label, double pct, Color color,
+      String hint) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 82,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 12)),
+                Text(hint,
+                    style: const TextStyle(fontSize: 9, color: Colors.grey)),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: pct,
+                minHeight: 12,
+                backgroundColor: color.withOpacity(0.12),
+                valueColor: AlwaysStoppedAnimation(color),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 36,
+            child: Text(
+              '${(pct * 100).round()}%',
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+              textAlign: TextAlign.end,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Body measurements card.
+// ---------------------------------------------------------------------------
+
+class _MeasurementCard extends StatelessWidget {
+  const _MeasurementCard({
+    required this.latest,
+    required this.previous,
+    required this.lastDate,
+  });
+  final Map<String, double> latest;
+  final Map<String, double> previous;
+  final DateTime? lastDate;
+
+  @override
+  Widget build(BuildContext context) {
+    final knownSites = [
+      ..._measurementSites.where((s) => latest.containsKey(s)),
+      ...latest.keys.where((k) => !_measurementSites.contains(k)),
+    ];
+
+    if (knownSites.isEmpty) {
+      return AppCard(
+        child: Column(
+          children: [
+            const SizedBox(height: 20),
+            Icon(Icons.straighten_outlined,
+                size: 36, color: Theme.of(context).hintColor),
+            const SizedBox(height: 10),
+            Text('No measurements yet',
+                style: TextStyle(color: Theme.of(context).hintColor)),
+            const SizedBox(height: 4),
+            Text('Tap "Log" to record waist, chest, arms and more.',
+                style: TextStyle(
+                    color: Theme.of(context).hintColor, fontSize: 12),
+                textAlign: TextAlign.center),
+            const SizedBox(height: 20),
+          ],
+        ),
+      );
+    }
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (lastDate != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Text(
+                'Last logged ${Formatters.relativeDay(lastDate!)}',
+                style: TextStyle(
+                    fontSize: 12, color: Theme.of(context).hintColor),
+              ),
+            ),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              for (final site in knownSites)
+                _MeasurementChip(
+                  site: site,
+                  value: latest[site]!,
+                  prev: previous[site],
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MeasurementChip extends StatelessWidget {
+  const _MeasurementChip({
+    required this.site,
+    required this.value,
+    required this.prev,
+  });
+  final String site;
+  final double value;
+  final double? prev;
+
+  @override
+  Widget build(BuildContext context) {
+    IconData? trendIcon;
+    Color trendColor = Colors.grey;
+    if (prev != null) {
+      if (value < prev! - 0.1) {
+        trendIcon = Icons.trending_down;
+        trendColor = AppColors.success;
+      } else if (value > prev! + 0.1) {
+        trendIcon = Icons.trending_up;
+        trendColor = AppColors.danger;
+      } else {
+        trendIcon = Icons.trending_flat;
+        trendColor = Colors.grey;
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.primary.withOpacity(0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(site,
+              style: const TextStyle(fontSize: 11, color: Colors.grey)),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('${value.toStringAsFixed(1)} cm',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w800, fontSize: 15)),
+              if (trendIcon != null) ...[
+                const SizedBox(width: 4),
+                Icon(trendIcon, size: 14, color: trendColor),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Charts.
+// ---------------------------------------------------------------------------
 
 class _WeightChart extends StatelessWidget {
   const _WeightChart({
@@ -414,7 +921,8 @@ class _VolumeChart extends StatelessWidget {
                 toY: data[recent[i]]!,
                 color: AppColors.primary,
                 width: 12,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(4)),
               ),
             ]),
         ],
@@ -443,7 +951,8 @@ class _MuscleBar extends StatelessWidget {
           SizedBox(
             width: 80,
             child: Text(group,
-                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                style:
+                    const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
           ),
           Expanded(
             child: ClipRRect(
@@ -514,7 +1023,8 @@ class _GoalCard extends StatelessWidget {
             '${Formatters.weight(goal.currentValue)} / '
             '${Formatters.weight(goal.targetValue)} ${goal.unit} · '
             '${Formatters.percent(goal.progress)}',
-            style: TextStyle(color: Theme.of(context).hintColor, fontSize: 12.5),
+            style: TextStyle(
+                color: Theme.of(context).hintColor, fontSize: 12.5),
           ),
         ],
       ),

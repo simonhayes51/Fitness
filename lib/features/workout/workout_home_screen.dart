@@ -66,6 +66,8 @@ class WorkoutHomeScreen extends ConsumerWidget {
               ),
             ),
           ),
+          const SectionHeader('Training Calendar'),
+          _WorkoutCalendar(workouts: ref.watch(workoutRepositoryProvider)),
           SectionHeader('History (${history.length})'),
           if (history.isEmpty)
             const Padding(
@@ -152,6 +154,170 @@ class WorkoutHomeScreen extends ConsumerWidget {
     ));
     ref.read(dataRevisionProvider.notifier).state++;
   }
+}
+
+class _WorkoutCalendar extends StatefulWidget {
+  const _WorkoutCalendar({required this.workouts});
+  final WorkoutRepository workouts;
+
+  @override
+  State<_WorkoutCalendar> createState() => _WorkoutCalendarState();
+}
+
+class _WorkoutCalendarState extends State<_WorkoutCalendar> {
+  late DateTime _month;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _month = DateTime(now.year, now.month, 1);
+  }
+
+  void _prev() => setState(
+      () => _month = DateTime(_month.year, _month.month - 1, 1));
+
+  void _next() => setState(
+      () => _month = DateTime(_month.year, _month.month + 1, 1));
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final daysInMonth =
+        DateUtils.getDaysInMonth(_month.year, _month.month);
+    final startPad =
+        DateTime(_month.year, _month.month, 1).weekday - 1; // Mon=0
+    final isCurrentMonth =
+        _month.year == now.year && _month.month == now.month;
+
+    final trainingDays = <int>{};
+    for (int d = 1; d <= daysInMonth; d++) {
+      final day = DateTime(_month.year, _month.month, d);
+      if (widget.workouts.workoutsForDay(day).isNotEmpty) {
+        trainingDays.add(d);
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+      child: AppCard(
+        child: Column(
+          children: [
+            // Month navigation header.
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.chevron_left),
+                  onPressed: _prev,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+                Expanded(
+                  child: Text(
+                    '${_monthName(_month.month)} ${_month.year}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 15),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.chevron_right,
+                      color: isCurrentMonth ? Colors.grey : null),
+                  onPressed: isCurrentMonth ? null : _next,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            // Weekday labels.
+            Row(
+              children: ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+                  .map((d) => Expanded(
+                        child: Text(d,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                fontSize: 11, color: Colors.grey)),
+                      ))
+                  .toList(),
+            ),
+            const SizedBox(height: 4),
+            // Day grid.
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate:
+                  const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 7,
+                childAspectRatio: 1.1,
+              ),
+              itemCount: startPad + daysInMonth,
+              itemBuilder: (context, i) {
+                if (i < startPad) return const SizedBox.shrink();
+                final day = i - startPad + 1;
+                final hasWorkout = trainingDays.contains(day);
+                final isToday = isCurrentMonth && day == now.day;
+                final isFuture = isCurrentMonth && day > now.day;
+
+                return Center(
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: hasWorkout
+                          ? AppColors.primary
+                          : isToday
+                              ? AppColors.primary.withOpacity(0.20)
+                              : null,
+                    ),
+                    child: Center(
+                      child: Text(
+                        '$day',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: hasWorkout
+                              ? FontWeight.w800
+                              : FontWeight.w400,
+                          color: hasWorkout
+                              ? Colors.black
+                              : isFuture
+                                  ? Colors.grey.withOpacity(0.35)
+                                  : null,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 4),
+            // Legend.
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Container(
+                    width: 10,
+                    height: 10,
+                    decoration: const BoxDecoration(
+                        color: AppColors.primary, shape: BoxShape.circle)),
+                const SizedBox(width: 5),
+                const Text('Workout day',
+                    style: TextStyle(fontSize: 11, color: Colors.grey)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static const _months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
+
+  static String _monthName(int month) => _months[month - 1];
 }
 
 class _RoutineCard extends StatelessWidget {
