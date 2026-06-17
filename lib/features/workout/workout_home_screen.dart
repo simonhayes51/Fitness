@@ -6,6 +6,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/models/routine.dart';
 import '../../data/models/workout.dart';
+import '../../data/repositories/workout_repository.dart';
 import '../../shared/providers/active_workout_provider.dart';
 import '../../shared/providers/providers.dart';
 import '../../shared/widgets/common.dart';
